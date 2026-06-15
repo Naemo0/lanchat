@@ -50,10 +50,11 @@ class ChatServerService : Service() {
             })
 
             try {
-                server?.start(0, false)
+                server?.startWithPing()
                 isRunning = true
-                val ip = server?.getLocalIpAddress() ?: "127.0.0.1"
-                updateNotification("السيرفر يعمل على $ip:$port")
+                val ips = server?.getAllLocalIpAddresses() ?: emptyList()
+                val ipText = if (ips.isNotEmpty()) ips.joinToString(" / ") else "127.0.0.1"
+                updateNotification("السيرفر يعمل على $ipText:$port")
             } catch (e: Exception) {
                 isRunning = false
                 updateNotification("فشل تشغيل السيرفر: ${e.message}")
