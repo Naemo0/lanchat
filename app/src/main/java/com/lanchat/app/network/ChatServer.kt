@@ -40,6 +40,34 @@ class ChatServer(
         return ClientSocket(handshake)
     }
 
+    private var pingExecutor: java.util.concurrent.ScheduledExecutorService? = null
+
+    /**
+     * يبدأ السيرفر مع تفعيل نبضات اتصال دورية (Ping) لكل العملاء.
+     * هذا ضروري عند عبور الاتصال لعدة راوترات/شبكات فرعية، حيث تقوم
+     * أجهزة التوجيه عادة بإسقاط الاتصالات الخاملة بعد فترة قصيرة (NAT timeout).
+     */
+    fun startWithPing() {
+        start(SOCKET_READ_TIMEOUT, true)
+        pingExecutor?.shutdownNow()
+        pingExecutor = java.util.concurrent.Executors.newSingleThreadScheduledExecutor()
+        pingExecutor?.scheduleWithFixedDelay({
+            for (client in clients.values) {
+                try {
+                    client.socket.ping(ByteArray(0))
+                } catch (e: Exception) {
+                    // سيتم تنظيف العميل عند onException/onClose
+                }
+            }
+        }, 25, 25, java.util.concurrent.TimeUnit.SECONDS)
+    }
+
+    override fun stop() {
+        pingExecutor?.shutdownNow()
+        pingExecutor = null
+        super.stop()
+    }
+
     /** يبث رسالة JSON لكل العملاء المتصلين */
     fun broadcast(json: JSONObject) {
         val text = json.toString()
@@ -76,6 +104,31 @@ class ChatServer(
         }
     }
 
+    /**
+     * يعيد كل عناوين IPv4 المحلية المتاحة على كل واجهات الشبكة (Wi-Fi، هوتسبوت، إيثرنت...).
+     * مفيد عند وجود عدة راوترات/شبكات فرعية متصلة بالجهاز المستضيف، حيث قد يكون
+     * للجهاز أكثر من عنوان IP على واجهات مختلفة.
+     */
+    fun getAllLocalIpAddresses(): List<String> {
+        val result = mutableListOf<String>()
+        try {
+            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val iface = interfaces.nextElement()
+                if (!iface.isUp || iface.isLoopback) continue
+                val addresses = iface.inetAddresses
+                while (addresses.hasMoreElements()) {
+                    val addr = addresses.nextElement()
+                    if (addr is InetAddress && !addr.isLoopbackAddress && addr.hostAddress?.contains(":") == false) {
+                        result.add(addr.hostAddress)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+        }
+        return result
+    }
+
     inner class ClientSocket(handshake: fi.iki.elonen.NanoHTTPD.IHTTPSession) : WebSocket(handshake) {
 
         private var clientId: String = UUID.randomUUID().toString()
@@ -104,7 +157,7 @@ class ChatServer(
                         broadcastUserList()
                         broadcastSystem("$clientName انضم إلى المحادثة")
                     }
-                    "message" -> {
+                    "message", "image" -> {
                         listener.onMessageReceived(json)
                         broadcast(json)
                     }
