@@ -15,4 +15,7 @@
     <string name="connected">متصل ✓</string>
     <string name="stop_server">إيقاف السيرفر</string>
     <string name="disconnect">قطع الاتصال</string>
+    <string name="image_message">صورة</string>
+    <string name="sending_image">جاري إرسال الصورة...</string>
+    <string name="image_too_large">الصورة كبيرة جداً، حاول صورة أخرى</string>
 </resources>
