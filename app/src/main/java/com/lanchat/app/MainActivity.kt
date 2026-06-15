@@ -22,9 +22,9 @@ class MainActivity : AppCompatActivity() {
         etServerIp = findViewById(R.id.etServerIp)
 
         val tvLocalIpHint = findViewById<android.widget.TextView>(R.id.tvLocalIpHint)
-        val localIp = getLocalIpHint()
-        tvLocalIpHint.text = if (localIp != null) {
-            "عنوان جهازك الحالي على الشبكة: $localIp"
+        val localIps = getAllLocalIpHints()
+        tvLocalIpHint.text = if (localIps.isNotEmpty()) {
+            "عناوين جهازك على الشبكة:\n" + localIps.joinToString("\n")
         } else {
             "تأكد من الاتصال بشبكة Wi-Fi أو تفعيل الهوتسبوت"
         }
@@ -36,12 +36,16 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<android.widget.Button>(R.id.btnJoinServer).setOnClickListener {
             val name = userNameOrDefault()
-            val ip = etServerIp.text?.toString()?.trim()
-            if (ip.isNullOrEmpty()) {
+            val ipInput = etServerIp.text?.toString()?.trim()
+            if (ipInput.isNullOrEmpty()) {
                 Toast.makeText(this, "أدخل عنوان IP للسيرفر", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
-            joinChat(name, ip)
+            // يدعم إدخال "IP" أو "IP:PORT" (مفيد عند استخدام بورت مخصص عبر راوترات متعددة)
+            val parts = ipInput.split(":")
+            val ip = parts[0].trim()
+            val customPort = parts.getOrNull(1)?.trim()?.toIntOrNull() ?: ChatServer.DEFAULT_PORT
+            joinChat(name, ip, customPort)
         }
     }
 
@@ -73,18 +77,22 @@ class MainActivity : AppCompatActivity() {
         }, 400)
     }
 
-    private fun joinChat(name: String, ip: String) {
+    private fun joinChat(name: String, ip: String, port: Int = ChatServer.DEFAULT_PORT) {
         val intent = Intent(this, ChatActivity::class.java)
         intent.putExtra("mode", "client")
         intent.putExtra("userName", name)
         intent.putExtra("serverIp", ip)
-        intent.putExtra("port", ChatServer.DEFAULT_PORT)
+        intent.putExtra("port", port)
         startActivity(intent)
     }
 
-    /** يحاول الحصول على عنوان IP المحلي للجهاز لإظهاره كدليل للمستخدم */
-    private fun getLocalIpHint(): String? {
-        return try {
+    /**
+     * يحاول الحصول على كل عناوين IP المحلية للجهاز (على كل واجهات الشبكة)
+     * لإظهارها كدليل للمستخدم. مفيد عند وجود عدة شبكات/راوترات متصلة بالجهاز.
+     */
+    private fun getAllLocalIpHints(): List<String> {
+        val result = mutableListOf<String>()
+        try {
             val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val iface = interfaces.nextElement()
@@ -93,13 +101,12 @@ class MainActivity : AppCompatActivity() {
                 while (addresses.hasMoreElements()) {
                     val addr = addresses.nextElement()
                     if (!addr.isLoopbackAddress && addr.hostAddress?.contains(":") == false) {
-                        return addr.hostAddress
+                        result.add("${addr.hostAddress} (${iface.displayName})")
                     }
                 }
             }
-            null
         } catch (e: Exception) {
-            null
         }
+        return result
     }
 }
