@@ -1,5 +1,7 @@
 package com.lanchat.app
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.widget.HorizontalScrollView
@@ -7,6 +9,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -15,6 +18,7 @@ import com.lanchat.app.network.ChatClient
 import com.lanchat.app.network.ChatServer
 import com.lanchat.app.network.ChatServerService
 import com.lanchat.app.ui.MessageAdapter
+import com.lanchat.app.util.ImageUtils
 import org.json.JSONObject
 import java.util.UUID
 
@@ -24,6 +28,7 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
     private lateinit var adapter: MessageAdapter
     private lateinit var etMessage: android.widget.EditText
     private lateinit var btnSend: ImageButton
+    private lateinit var btnAttach: ImageButton
     private lateinit var tvStatus: TextView
     private lateinit var tvChatTitle: TextView
     private lateinit var statusDot: View
@@ -39,6 +44,12 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
     private var serverIp: String = "127.0.0.1"
     private var port: Int = ChatServer.DEFAULT_PORT
     private var usersVisible = false
+
+    private val pickImageLauncher = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) sendImageFromUri(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +73,7 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         recycler = findViewById(R.id.recyclerMessages)
         etMessage = findViewById(R.id.etMessage)
         btnSend = findViewById(R.id.btnSend)
+        btnAttach = findViewById(R.id.btnAttach)
         tvStatus = findViewById(R.id.tvStatus)
         tvChatTitle = findViewById(R.id.tvChatTitle)
         statusDot = findViewById(R.id.statusDot)
@@ -79,6 +91,14 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
     private fun setupListeners() {
         btnSend.setOnClickListener { sendCurrentMessage() }
+
+        btnAttach.setOnClickListener {
+            if (client?.isOpen() != true) {
+                Toast.makeText(this, "غير متصل بالسيرفر", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            pickImageLauncher.launch("image/*")
+        }
 
         etMessage.setOnEditorActionListener { _, _, _ ->
             sendCurrentMessage()
@@ -114,6 +134,27 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         etMessage.setText("")
     }
 
+    /** يضغط الصورة المختارة ويرسلها كرسالة من نوع "image" */
+    private fun sendImageFromUri(uri: Uri) {
+        if (client?.isOpen() != true) {
+            Toast.makeText(this, "غير متصل بالسيرفر", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        Toast.makeText(this, getString(R.string.sending_image), Toast.LENGTH_SHORT).show()
+
+        Thread {
+            val base64 = ImageUtils.encodeImageFromUri(this, uri)
+            runOnUiThread {
+                if (base64 == null) {
+                    Toast.makeText(this, getString(R.string.image_too_large), Toast.LENGTH_SHORT).show()
+                    return@runOnUiThread
+                }
+                client?.sendImage(base64)
+            }
+        }.start()
+    }
+
     // ===== ChatClient.ClientListener =====
 
     override fun onConnected() {
@@ -142,6 +183,22 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
                         timestamp = json.optLong("timestamp", System.currentTimeMillis()),
                         isMine = senderId == myUserId,
                         isSystem = false
+                    )
+                    adapter.addMessage(msg)
+                    recycler.scrollToPosition(adapter.itemCount - 1)
+                }
+                ChatMessageType.IMAGE -> {
+                    val senderId = json.optString("senderId")
+                    val imgData = if (json.has("image")) json.optString("image") else null
+                    val msg = UiMessage(
+                        id = json.optString("id"),
+                        sender = json.optString("sender"),
+                        text = json.optString("text"),
+                        timestamp = json.optLong("timestamp", System.currentTimeMillis()),
+                        isMine = senderId == myUserId,
+                        isSystem = false,
+                        isImage = true,
+                        imageData = imgData
                     )
                     adapter.addMessage(msg)
                     recycler.scrollToPosition(adapter.itemCount - 1)
@@ -207,5 +264,6 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         const val MESSAGE = "message"
         const val SYSTEM = "system"
         const val USERLIST = "userlist"
+        const val IMAGE = "image"
     }
 }
