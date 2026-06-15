@@ -1,0 +1,70 @@
+package com.lanchat.app.util
+
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
+import java.io.ByteArrayOutputStream
+
+/**
+ * أدوات مساعدة لمعالجة الصور قبل إرسالها عبر الشبكة المحلية:
+ * - تصغير الصورة لأبعاد معقولة (لتفادي إرسال صور ضخمة عبر WebSocket)
+ * - ضغطها بصيغة JPEG
+ * - ترميزها إلى Base64 لتُحمل داخل رسالة JSON
+ * - وعكس العملية عند الاستقبال
+ */
+object ImageUtils {
+
+    // أقصى أبعاد للصورة بعد التصغير (الأكبر بينهما لن يتجاوز هذه القيمة)
+    private const val MAX_DIMENSION = 1024
+
+    // جودة ضغط JPEG (0-100)
+    private const val JPEG_QUALITY = 70
+
+    /**
+     * يحمّل صورة من Uri، يصغّرها ويضغطها، ويعيدها كنص Base64.
+     * يعيد null في حال فشل القراءة أو فك الترميز.
+     */
+    fun encodeImageFromUri(context: Context, uri: Uri): String? {
+        return try {
+            val input = context.contentResolver.openInputStream(uri) ?: return null
+            val original = BitmapFactory.decodeStream(input)
+            input.close()
+            if (original == null) return null
+
+            val resized = resizeBitmap(original, MAX_DIMENSION)
+            val out = ByteArrayOutputStream()
+            resized.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+            val bytes = out.toByteArray()
+            Base64.encodeToString(bytes, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** يحوّل نص Base64 إلى Bitmap لعرضه في الواجهة */
+    fun decodeBase64ToBitmap(base64: String): Bitmap? {
+        return try {
+            val bytes = Base64.decode(base64, Base64.NO_WRAP)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun resizeBitmap(bitmap: Bitmap, maxDimension: Int): Bitmap {
+        val width = bitmap.width
+        val height = bitmap.height
+        if (width <= maxDimension && height <= maxDimension) return bitmap
+
+        val ratio = if (width > height) {
+            maxDimension.toFloat() / width
+        } else {
+            maxDimension.toFloat() / height
+        }
+        val newWidth = (width * ratio).toInt().coerceAtLeast(1)
+        val newHeight = (height * ratio).toInt().coerceAtLeast(1)
+        return Bitmap.createScaledBitmap(bitmap, newWidth, newHeight, true)
+    }
+}
