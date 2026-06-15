@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#5B6CFF</color>
+    <color name="primary_dark">#3F4FD9</color>
+    <color name="accent">#22D3A6</color>
+    <color name="background">#F5F6FB</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="bubble_me">#5B6CFF</color>
+    <color name="bubble_other">#FFFFFF</color>
+    <color name="text_primary">#1A1C2E</color>
+    <color name="text_secondary">#8A8D9F</color>
+    <color name="text_on_primary">#FFFFFF</color>
+    <color name="online_green">#22D3A6</color>
+    <color name="divider">#E6E8F0</color>
+</resources>

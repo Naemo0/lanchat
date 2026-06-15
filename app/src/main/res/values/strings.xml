@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LanChat محادثة محلية</string>
+    <string name="start_server">تشغيل كسيرفر (مستضيف)</string>
+    <string name="join_server">الانضمام لسيرفر موجود</string>
+    <string name="server_running">السيرفر يعمل على</string>
+    <string name="enter_name">اسمك في المحادثة</string>
+    <string name="enter_ip">عنوان IP للسيرفر</string>
+    <string name="connect">اتصال</string>
+    <string name="type_message">اكتب رسالة...</string>
+    <string name="send">إرسال</string>
+    <string name="connected_devices">الأجهزة المتصلة</string>
+    <string name="not_connected">غير متصل</string>
+    <string name="connecting">جاري الاتصال...</string>
+    <string name="connected">متصل ✓</string>
+    <string name="stop_server">إيقاف السيرفر</string>
+    <string name="disconnect">قطع الاتصال</string>
+</resources>
