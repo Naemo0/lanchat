@@ -3,6 +3,7 @@ package com.lanchat.app.ui
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.lanchat.app.R
@@ -29,7 +30,7 @@ class ConversationAdapter(private val onConvClick: (ConversationEntity) -> Unit)
 
     override fun onBindViewHolder(holder: ConvViewHolder, position: Int) {
         val conv = conversations[position]
-        holder.name.text = conv.serverName
+        holder.name.text = conv.name
         holder.lastMsg.text = conv.lastMessage
         holder.time.text = timeFormat.format(Date(conv.lastTimestamp))
         
@@ -50,5 +51,6 @@ class ConversationAdapter(private val onConvClick: (ConversationEntity) -> Unit)
         val lastMsg: TextView = view.findViewById(R.id.tvConvLastMsg)
         val time: TextView = view.findViewById(R.id.tvConvTime)
         val badge: TextView = view.findViewById(R.id.tvUnreadBadge)
+        val avatar: ImageView = view.findViewById(R.id.ivAvatar)
     }
 }

@@ -7,9 +7,11 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import coil.load
 import com.lanchat.app.ImageViewerActivity
 import com.lanchat.app.R
-import com.lanchat.app.data.MessageEntity
+import com.lanchat.app.data.ChatMessage
+import com.lanchat.app.data.MessageStatus
 import com.lanchat.app.data.UiMessage
 import com.lanchat.app.util.AudioUtils
 import com.lanchat.app.util.ImageUtils
@@ -26,12 +28,6 @@ class MessageAdapter(
         private const val TYPE_ME = 0
         private const val TYPE_OTHER = 1
         private const val TYPE_SYSTEM = 2
-        private const val TYPE_IMAGE_ME = 3
-        private const val TYPE_IMAGE_OTHER = 4
-        private const val TYPE_FILE_ME = 5
-        private const val TYPE_FILE_OTHER = 6
-        private const val TYPE_VOICE_ME = 7
-        private const val TYPE_VOICE_OTHER = 8
     }
 
     private val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -39,13 +35,7 @@ class MessageAdapter(
     override fun getItemViewType(position: Int): Int {
         val msg = messages[position]
         return when {
-            msg.isSystem -> TYPE_SYSTEM
-            msg.isImage && msg.isMine -> TYPE_IMAGE_ME
-            msg.isImage -> TYPE_IMAGE_OTHER
-            msg.isVoice && msg.isMine -> TYPE_VOICE_ME
-            msg.isVoice -> TYPE_VOICE_OTHER
-            msg.isFile && msg.isMine -> TYPE_FILE_ME
-            msg.isFile -> TYPE_FILE_OTHER
+            msg.type == ChatMessage.TYPE_SYSTEM -> TYPE_SYSTEM
             msg.isMine -> TYPE_ME
             else -> TYPE_OTHER
         }
@@ -56,10 +46,6 @@ class MessageAdapter(
         return when (viewType) {
             TYPE_ME -> MeViewHolder(inflater.inflate(R.layout.item_message_me, parent, false))
             TYPE_OTHER -> OtherViewHolder(inflater.inflate(R.layout.item_message_other, parent, false))
-            TYPE_IMAGE_ME -> ImageMeViewHolder(inflater.inflate(R.layout.item_image_me, parent, false))
-            TYPE_IMAGE_OTHER -> ImageOtherViewHolder(inflater.inflate(R.layout.item_image_other, parent, false))
-            TYPE_FILE_ME, TYPE_FILE_OTHER, TYPE_VOICE_ME, TYPE_VOICE_OTHER -> 
-                FileViewHolder(inflater.inflate(R.layout.item_message_other, parent, false)) // Reuse or create specific
             else -> SystemViewHolder(inflater.inflate(R.layout.item_message_system, parent, false))
         }
     }
@@ -75,88 +61,87 @@ class MessageAdapter(
 
         when (holder) {
             is MeViewHolder -> {
-                holder.text.text = msg.text
-                holder.time.text = timeStr
+                bindCommon(holder.text, holder.time, holder.replyLayout, holder.replyName, holder.replyText, msg, timeStr)
                 setStatus(holder.status, msg.status)
-                bindReply(holder.replyLayout, holder.replyText, msg)
+                bindMedia(holder.image, holder.voiceLayout, msg)
             }
             is OtherViewHolder -> {
                 holder.name.text = msg.sender
-                holder.text.text = msg.text
-                holder.time.text = timeStr
-                bindReply(holder.replyLayout, holder.replyText, msg)
+                bindCommon(holder.text, holder.time, holder.replyLayout, holder.replyName, holder.replyText, msg, timeStr)
+                bindMedia(holder.image, holder.voiceLayout, msg)
+                // Load avatar if exists
+                if (msg.avatar != null) {
+                    // Coil.load(msg.avatar)
+                }
             }
             is SystemViewHolder -> {
                 holder.text.text = msg.text
             }
-            is ImageMeViewHolder -> {
-                bindImage(holder.image, holder.text, holder.time, msg, timeStr)
-                setStatus(holder.status, msg.status)
-            }
-            is ImageOtherViewHolder -> {
-                holder.name.text = msg.sender
-                bindImage(holder.image, holder.text, holder.time, msg, timeStr)
-            }
-            is FileViewHolder -> {
-                // Simplified for now, just show as text with an icon
-                val prefix = if (msg.isVoice) "🎤 رسالة صوتية" else "📁 ملف: ${msg.fileName}"
-                holder.text.text = prefix
-                holder.itemView.setOnClickListener {
-                    if (msg.isVoice && msg.imageData != null) {
-                        AudioUtils.playAudio(msg.imageData, holder.itemView.context)
-                    }
-                }
-            }
         }
     }
 
-    private fun bindReply(layout: View, textView: TextView, msg: UiMessage) {
+    private fun bindCommon(text: TextView, time: TextView, replyLayout: View, replyName: TextView, replyText: TextView, msg: UiMessage, timeStr: String) {
+        text.text = msg.text
+        time.text = timeStr
+        
         if (msg.replyToId != null) {
-            layout.visibility = View.VISIBLE
-            textView.text = msg.replyToText ?: "رسالة"
+            replyLayout.visibility = View.VISIBLE
+            replyName.text = msg.replyToSender ?: "User"
+            replyText.text = msg.replyToText ?: "Message"
         } else {
-            layout.visibility = View.GONE
+            replyLayout.visibility = View.GONE
+        }
+    }
+
+    private fun bindMedia(image: ImageView?, voiceLayout: View?, msg: UiMessage) {
+        image?.visibility = View.GONE
+        voiceLayout?.visibility = View.GONE
+
+        when (msg.type) {
+            ChatMessage.TYPE_IMAGE -> {
+                image?.visibility = View.VISIBLE
+                msg.imageData?.let { data ->
+                    val bitmap = ImageUtils.decodeBase64ToBitmap(data)
+                    image?.setImageBitmap(bitmap)
+                    image?.setOnClickListener {
+                        val intent = Intent(it.context, ImageViewerActivity::class.java)
+                        intent.putExtra(ImageViewerActivity.EXTRA_IMAGE_BASE64, data)
+                        it.context.startActivity(intent)
+                    }
+                }
+            }
+            ChatMessage.TYPE_VOICE -> {
+                voiceLayout?.visibility = View.VISIBLE
+                voiceLayout?.setOnClickListener {
+                    msg.voiceData?.let { data ->
+                        AudioUtils.playAudio(data, it.context)
+                    }
+                }
+            }
+            ChatMessage.TYPE_FILE -> {
+                // Show file icon and name in text
+            }
         }
     }
 
     private fun setStatus(textView: TextView, status: Int) {
         when (status) {
-            MessageEntity.STATUS_SENT -> {
+            MessageStatus.SENDING -> {
+                textView.text = "..."
+                textView.alpha = 0.5f
+            }
+            MessageStatus.SENT -> {
                 textView.text = "✓"
-                textView.alpha = 0.6f
+                textView.alpha = 0.5f
             }
-            MessageEntity.STATUS_DELIVERED -> {
+            MessageStatus.DELIVERED -> {
                 textView.text = "✓✓"
-                textView.alpha = 0.6f
+                textView.alpha = 0.5f
             }
-            MessageEntity.STATUS_SEEN -> {
+            MessageStatus.SEEN -> {
                 textView.text = "✓✓"
-                textView.setTextColor(textView.context.getColor(R.color.accent))
+                textView.setTextColor(textView.context.getColor(R.color.secondary))
                 textView.alpha = 1.0f
-            }
-        }
-    }
-
-    private fun bindImage(image: ImageView, text: TextView, time: TextView, msg: UiMessage, timeStr: String) {
-        time.text = timeStr
-        if (msg.text.isNotEmpty()) {
-            text.text = msg.text
-            text.visibility = View.VISIBLE
-        } else {
-            text.visibility = View.GONE
-        }
-
-        val data = msg.imageData
-        if (data != null) {
-            val bitmap = ImageUtils.decodeBase64ToBitmap(data)
-            if (bitmap != null) {
-                image.setImageBitmap(bitmap)
-                image.setOnClickListener {
-                    val context = image.context
-                    val intent = Intent(context, ImageViewerActivity::class.java)
-                    intent.putExtra(ImageViewerActivity.EXTRA_IMAGE_BASE64, data)
-                    context.startActivity(intent)
-                }
             }
         }
     }
@@ -174,7 +159,10 @@ class MessageAdapter(
         val time: TextView = view.findViewById(R.id.tvTime)
         val status: TextView = view.findViewById(R.id.tvStatus)
         val replyLayout: View = view.findViewById(R.id.layoutReplyPreview)
-        val replyText: TextView = view.findViewById(R.id.tvReplyPreviewText)
+        val replyName: TextView = view.findViewById(R.id.tvReplySender)
+        val replyText: TextView = view.findViewById(R.id.tvReplyText)
+        val image: ImageView? = view.findViewById(R.id.ivMessageImage)
+        val voiceLayout: View? = view.findViewById(R.id.layoutVoice)
     }
 
     class OtherViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -182,28 +170,14 @@ class MessageAdapter(
         val text: TextView = view.findViewById(R.id.tvMessageText)
         val time: TextView = view.findViewById(R.id.tvTime)
         val replyLayout: View = view.findViewById(R.id.layoutReplyPreview)
-        val replyText: TextView = view.findViewById(R.id.tvReplyPreviewText)
+        val replyName: TextView = view.findViewById(R.id.tvReplySender)
+        val replyText: TextView = view.findViewById(R.id.tvReplyText)
+        val image: ImageView? = view.findViewById(R.id.ivMessageImage)
+        val voiceLayout: View? = view.findViewById(R.id.layoutVoice)
+        val avatar: ImageView? = view.findViewById(R.id.ivAvatar)
     }
 
     class SystemViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val text: TextView = view.findViewById(R.id.tvSystemText)
-    }
-
-    class ImageMeViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val image: ImageView = view.findViewById(R.id.ivMessageImage)
-        val text: TextView = view.findViewById(R.id.tvMessageText)
-        val time: TextView = view.findViewById(R.id.tvTime)
-        val status: TextView = view.findViewById(R.id.tvStatus)
-    }
-
-    class ImageOtherViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val name: TextView = view.findViewById(R.id.tvSenderName)
-        val image: ImageView = view.findViewById(R.id.ivMessageImage)
-        val text: TextView = view.findViewById(R.id.tvMessageText)
-        val time: TextView = view.findViewById(R.id.tvTime)
-    }
-
-    class FileViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val text: TextView = view.findViewById(R.id.tvMessageText)
     }
 }

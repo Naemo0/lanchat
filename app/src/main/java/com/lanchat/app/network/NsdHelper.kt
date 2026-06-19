@@ -5,12 +5,16 @@ import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
 import android.util.Log
 
+/**
+ * Professional Network Service Discovery (NSD) Helper for LanChat Pro.
+ */
 class NsdHelper(context: Context) {
 
     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
     private val SERVICE_TYPE = "_lanchat._tcp."
     private var registrationListener: NsdManager.RegistrationListener? = null
     private var discoveryListener: NsdManager.DiscoveryListener? = null
+    private val TAG = "NsdHelper"
 
     interface DiscoveryListener {
         fun onServiceFound(serviceInfo: NsdServiceInfo)
@@ -26,31 +30,35 @@ class NsdHelper(context: Context) {
 
         registrationListener = object : NsdManager.RegistrationListener {
             override fun onServiceRegistered(NsdServiceInfo: NsdServiceInfo) {
-                Log.d("NSD", "Service registered: ${NsdServiceInfo.serviceName}")
+                Log.d(TAG, "Service registered: ${NsdServiceInfo.serviceName}")
             }
 
             override fun onRegistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                Log.e("NSD", "Registration failed: $errorCode")
+                Log.e(TAG, "Registration failed: $errorCode")
             }
 
             override fun onServiceUnregistered(arg0: NsdServiceInfo) {}
             override fun onUnregistrationFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {}
         }
 
-        nsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
+        try {
+            nsdManager.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error registering service", e)
+        }
     }
 
     fun discoverServices(listener: DiscoveryListener) {
         discoveryListener = object : NsdManager.DiscoveryListener {
             override fun onDiscoveryStarted(regType: String) {
-                Log.d("NSD", "Discovery started")
+                Log.d(TAG, "Discovery started")
             }
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
                 if (serviceInfo.serviceType == SERVICE_TYPE) {
                     nsdManager.resolveService(serviceInfo, object : NsdManager.ResolveListener {
                         override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                            Log.e("NSD", "Resolve failed: $errorCode")
+                            Log.e(TAG, "Resolve failed: $errorCode")
                         }
 
                         override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
@@ -66,24 +74,32 @@ class NsdHelper(context: Context) {
 
             override fun onDiscoveryStopped(serviceType: String) {}
             override fun onStartDiscoveryFailed(serviceType: String, errorCode: Int) {
-                nsdManager.stopServiceDiscovery(this)
+                try { nsdManager.stopServiceDiscovery(this) } catch (e: Exception) {}
             }
 
             override fun onStopDiscoveryFailed(serviceType: String, errorCode: Int) {
-                nsdManager.stopServiceDiscovery(this)
+                try { nsdManager.stopServiceDiscovery(this) } catch (e: Exception) {}
             }
         }
 
-        nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
+        try {
+            nsdManager.discoverServices(SERVICE_TYPE, NsdManager.PROTOCOL_DNS_SD, discoveryListener)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting discovery", e)
+        }
     }
 
     fun stopDiscovery() {
-        discoveryListener?.let { nsdManager.stopServiceDiscovery(it) }
+        try {
+            discoveryListener?.let { nsdManager.stopServiceDiscovery(it) }
+        } catch (e: Exception) {}
         discoveryListener = null
     }
 
     fun unregisterService() {
-        registrationListener?.let { nsdManager.unregisterService(it) }
+        try {
+            registrationListener?.let { nsdManager.unregisterService(it) }
+        } catch (e: Exception) {}
         registrationListener = null
     }
 }

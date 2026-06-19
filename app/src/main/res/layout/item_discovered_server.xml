@@ -1,54 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="horizontal"
-    android:padding="16dp"
-    android:background="@drawable/bg_card"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="1dp"
+    app:strokeColor="@color/slate_200"
     android:layout_marginBottom="8dp"
-    android:gravity="center_vertical"
     android:clickable="true"
-    android:focusable="true">
-
-    <TextView
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:text="🌐"
-        android:textSize="20sp"
-        android:gravity="center"
-        android:background="@drawable/bg_status_dot"
-        android:backgroundTint="#E8F5E9"
-        android:layout_marginEnd="12dp"/>
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground">
 
     <LinearLayout
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
 
-        <TextView
-            android:id="@+id/tvServerName"
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@android:drawable/ic_dialog_map"
+            app:tint="@color/primary"
+            android:background="@color/slate_100"
+            android:padding="8dp"
+            android:layout_marginEnd="12dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvServerName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Server Name"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"/>
+
+            <TextView
+                android:id="@+id/tvServerIp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="192.168.1.1"
+                android:textSize="12sp"
+                android:textColor="@color/text_secondary"/>
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="اسم السيرفر"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_primary"/>
-
-        <TextView
-            android:id="@+id/tvServerIp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="192.168.1.1"
-            android:textSize="12sp"
-            android:textColor="@color/text_secondary"/>
+            android:text="Join"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:clickable="false"
+            android:focusable="false" />
     </LinearLayout>
-
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="انضمام"
-        android:textColor="@color/primary"
-        android:textStyle="bold"
-        android:textSize="14sp"/>
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>

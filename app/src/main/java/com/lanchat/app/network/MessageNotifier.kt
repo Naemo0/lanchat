@@ -12,7 +12,7 @@ import com.lanchat.app.ChatActivity
 import com.lanchat.app.R
 
 /**
- * يعرض إشعاراً عند استلام رسالة جديدة بينما المحادثة في الخلفية.
+ * Professional Message Notifier for LanChat Pro.
  */
 object MessageNotifier {
 
@@ -25,10 +25,10 @@ object MessageNotifier {
             if (manager.getNotificationChannel(CHANNEL_ID) == null) {
                 val channel = NotificationChannel(
                     CHANNEL_ID,
-                    "رسائل المحادثة",
+                    "New Messages",
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply {
-                    description = "إشعارات الرسائل الجديدة في LanChat"
+                    description = "Notifications for new LanChat messages"
                     enableVibration(true)
                 }
                 manager.createNotificationChannel(channel)
@@ -39,7 +39,6 @@ object MessageNotifier {
     fun show(context: Context, sender: String, text: String) {
         ensureChannel(context)
 
-        // تأكد أن إذن الإشعارات متاح فعلياً قبل الإرسال (Android 13+)
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
 
         val intent = Intent(context, ChatActivity::class.java).apply {
@@ -50,22 +49,19 @@ object MessageNotifier {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        val displayText = if (text.isBlank()) "📷 صورة" else text
-
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(android.R.drawable.ic_dialog_email)
             .setContentTitle(sender)
-            .setContentText(displayText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(displayText))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
 
         try {
             NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
-        } catch (e: SecurityException) {
-            // الإذن غير ممنوح، تجاهل بصمت
-        }
+        } catch (e: SecurityException) {}
     }
 }

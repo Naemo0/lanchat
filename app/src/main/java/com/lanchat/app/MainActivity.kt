@@ -1,223 +1,207 @@
 package com.lanchat.app
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
+import android.net.nsd.NsdServiceInfo
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.tabs.TabLayout
+import com.google.android.material.textfield.TextInputEditText
 import com.lanchat.app.data.ChatDatabase
-import com.lanchat.app.data.ConversationEntity
 import com.lanchat.app.databinding.ActivityMainBinding
-import com.lanchat.app.network.ChatServer
 import com.lanchat.app.network.ChatServerService
 import com.lanchat.app.network.NsdHelper
 import com.lanchat.app.ui.ConversationAdapter
 import com.lanchat.app.ui.ServerAdapter
+import com.lanchat.app.util.DeviceUtils
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private lateinit var nsdHelper: NsdHelper
-    private lateinit var serverAdapter: ServerAdapter
     private lateinit var convAdapter: ConversationAdapter
+    private lateinit var serverAdapter: ServerAdapter
+    private var nsdHelper: NsdHelper? = null
     private val db by lazy { ChatDatabase.getDatabase(this) }
-
-    private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        requestNotificationPermission()
+        setupUI()
         setupAdapters()
-        setupListeners()
-        observeData()
-
-        nsdHelper = NsdHelper(this)
+        observeConversations()
         startDiscovery()
-
-        binding.tvLocalIpHint.text = "جهازك: " + getAllLocalIps().joinToString(", ")
+        
+        binding.tvHardwareId.text = "ID: ${DeviceUtils.getUniqueId(this)}"
     }
 
-    private fun setupAdapters() {
-        serverAdapter = ServerAdapter { serviceInfo ->
-            showJoinPasswordDialog(serviceInfo.host.hostAddress, serviceInfo.port, serviceInfo.serviceName)
-        }
-        binding.rvDiscoveredServers.layoutManager = LinearLayoutManager(this)
-        binding.rvDiscoveredServers.adapter = serverAdapter
-
-        convAdapter = ConversationAdapter { conv ->
-            // For saved conversations, we might not know if it had a password,
-            // but for simplicity, we try to join. If it fails, ChatActivity will handle.
-            joinChat(userNameOrDefault(), conv.serverIp, ChatServer.DEFAULT_PORT, conv.serverName)
-        }
-        binding.rvConversations.layoutManager = LinearLayoutManager(this)
-        binding.rvConversations.adapter = convAdapter
-    }
-
-    private fun setupListeners() {
+    private fun setupUI() {
         binding.tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
-                if (tab?.position == 0) {
-                    binding.layoutConversations.visibility = View.VISIBLE
-                    binding.layoutDiscovery.visibility = View.GONE
-                } else {
-                    binding.layoutConversations.visibility = View.GONE
-                    binding.layoutDiscovery.visibility = View.VISIBLE
+                when (tab?.position) {
+                    0 -> {
+                        binding.recyclerChats.visibility = View.VISIBLE
+                        binding.layoutDiscover.visibility = View.GONE
+                    }
+                    1 -> {
+                        binding.recyclerChats.visibility = View.GONE
+                        binding.layoutDiscover.visibility = View.VISIBLE
+                    }
                 }
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
 
-        binding.fabStartServer.setOnClickListener {
-            showCreateServerDialog()
-        }
-
-        binding.btnJoinManual.setOnClickListener {
-            val name = userNameOrDefault()
-            val ipInput = binding.etServerIp.text?.toString()?.trim()
-            if (ipInput.isNullOrEmpty()) {
-                Toast.makeText(this, "أدخل عنوان IP", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val parts = ipInput.split(":")
-            val ip = parts[0].trim()
-            val port = parts.getOrNull(1)?.toIntOrNull() ?: ChatServer.DEFAULT_PORT
-            joinChat(name, ip, port, "سيرفر يدوي")
-        }
+        binding.btnHost.setOnClickListener { showHostDialog() }
+        binding.btnManualConnect.setOnClickListener { showManualConnectDialog() }
+        binding.btnProfile.setOnClickListener { showProfileDialog() }
     }
 
-    private fun observeData() {
+    private fun setupAdapters() {
+        convAdapter = ConversationAdapter { conv ->
+            val intent = Intent(this, ChatActivity::class.java).apply {
+                putExtra("serverIp", conv.id)
+                putExtra("serverName", conv.name)
+                putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
+            }
+            startActivity(intent)
+        }
+        binding.recyclerChats.layoutManager = LinearLayoutManager(this)
+        binding.recyclerChats.adapter = convAdapter
+
+        serverAdapter = ServerAdapter { serviceInfo ->
+            showJoinDialog(serviceInfo)
+        }
+        binding.recyclerDiscovered.layoutManager = LinearLayoutManager(this)
+        binding.recyclerDiscovered.adapter = serverAdapter
+    }
+
+    private fun observeConversations() {
         lifecycleScope.launch {
             db.chatDao().getAllConversations().collectLatest { list ->
                 convAdapter.submitList(list)
-                binding.tvEmptyConversations.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+                binding.tvEmptyChats.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
             }
         }
     }
 
     private fun startDiscovery() {
-        binding.pbDiscovery.visibility = View.VISIBLE
-        nsdHelper.discoverServices(object : NsdHelper.DiscoveryListener {
-            override fun onServiceFound(serviceInfo: android.net.nsd.NsdServiceInfo) {
-                runOnUiThread {
-                    serverAdapter.addServer(serviceInfo)
-                    binding.pbDiscovery.visibility = View.GONE
-                    binding.tvDiscoveryStatus.text = "تم العثور على سيرفرات"
-                }
+        nsdHelper = NsdHelper(this)
+        nsdHelper?.discoverServices(object : NsdHelper.DiscoveryListener {
+            override fun onServiceFound(serviceInfo: NsdServiceInfo) {
+                runOnUiThread { serverAdapter.addServer(serviceInfo) }
             }
-
-            override fun onServiceLost(serviceInfo: android.net.nsd.NsdServiceInfo) {
+            override fun onServiceLost(serviceInfo: NsdServiceInfo) {
                 runOnUiThread { serverAdapter.removeServer(serviceInfo) }
             }
         })
     }
 
-    private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-                != PackageManager.PERMISSION_GRANTED
-            ) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
-    }
-
-    private fun userNameOrDefault(): String {
-        val name = binding.etUserName.text?.toString()?.trim()
-        return if (name.isNullOrEmpty()) "مستخدم${(1000..9999).random()}" else name
-    }
-
-    private fun startServerAndChat(name: String, password: String? = null) {
-        val serviceIntent = Intent(this, ChatServerService::class.java)
-        serviceIntent.putExtra("hostName", name)
-        serviceIntent.putExtra("password", password)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
-        }
-
-        android.os.Handler(mainLooper).postDelayed({
-            joinChat(name, "127.0.0.1", ChatServer.DEFAULT_PORT, "سيرفرك المحلي", password)
-        }, 500)
-    }
-
-    private fun showCreateServerDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_password, null)
-        val etPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPassword)
+    private fun showHostDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_host, null)
+        val etName = view.findViewById<TextInputEditText>(R.id.etRoomName)
+        val etPass = view.findViewById<TextInputEditText>(R.id.etPassword)
         
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("إنشاء سيرفر محمي")
-            .setView(dialogView)
-            .setPositiveButton("إنشاء") { _, _ ->
-                val pass = etPassword.text?.toString()
-                startServerAndChat(userNameOrDefault(), if(pass.isNullOrEmpty()) null else pass)
+        etName.setText("${DeviceUtils.getUserName(this)}'s Room")
+
+        AlertDialog.Builder(this)
+            .setTitle("Host a Room")
+            .setView(view)
+            .setPositiveButton("Start") { _, _ ->
+                val name = etName.text.toString()
+                val pass = etPass.text.toString()
+                val intent = Intent(this, ChatServerService::class.java).apply {
+                    putExtra("hostName", name)
+                    putExtra("password", pass.ifEmpty { null })
+                }
+                startService(intent)
+                
+                // Join own room
+                val chatIntent = Intent(this, ChatActivity::class.java).apply {
+                    putExtra("serverIp", "127.0.0.1")
+                    putExtra("serverName", name)
+                    putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
+                    putExtra("password", pass.ifEmpty { null })
+                }
+                startActivity(chatIntent)
             }
-            .setNegativeButton("بدون كلمة سر") { _, _ ->
-                startServerAndChat(userNameOrDefault(), null)
-            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
-    private fun joinChat(name: String, ip: String, port: Int, serverName: String, password: String? = null) {
-        val intent = Intent(this, ChatActivity::class.java)
-        intent.putExtra("userName", name)
-        intent.putExtra("serverIp", ip)
-        intent.putExtra("port", port)
-        intent.putExtra("serverName", serverName)
-        intent.putExtra("password", password)
-        startActivity(intent)
-    }
+    private fun showJoinDialog(serviceInfo: NsdServiceInfo) {
+        val view = layoutInflater.inflate(R.layout.dialog_join, null)
+        val etPass = view.findViewById<TextInputEditText>(R.id.etPassword)
 
-    private fun showJoinPasswordDialog(ip: String, port: Int, serverName: String) {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_password, null)
-        val etPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPassword)
-        
-        androidx.appcompat.app.AlertDialog.Builder(this)
-            .setTitle("دخول السيرفر")
-            .setView(dialogView)
-            .setPositiveButton("دخول") { _, _ ->
-                joinChat(userNameOrDefault(), ip, port, serverName, etPassword.text?.toString())
+        AlertDialog.Builder(this)
+            .setTitle("Join ${serviceInfo.serviceName}")
+            .setView(view)
+            .setPositiveButton("Join") { _, _ ->
+                val intent = Intent(this, ChatActivity::class.java).apply {
+                    putExtra("serverIp", serviceInfo.host?.hostAddress)
+                    putExtra("serverName", serviceInfo.serviceName)
+                    putExtra("port", serviceInfo.port)
+                    putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
+                    putExtra("password", etPass.text.toString().ifEmpty { null })
+                }
+                startActivity(intent)
             }
-            .setNegativeButton("إلغاء", null)
+            .setNegativeButton("Cancel", null)
             .show()
     }
 
-    private fun getAllLocalIps(): List<String> {
-        val result = mutableListOf<String>()
-        try {
-            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val iface = interfaces.nextElement()
-                if (!iface.isUp || iface.isLoopback) continue
-                val addresses = iface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val addr = addresses.nextElement()
-                    if (!addr.isLoopbackAddress && addr.hostAddress?.contains(":") == false) {
-                        result.add(addr.hostAddress)
+    private fun showManualConnectDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_manual_connect, null)
+        val etIp = view.findViewById<TextInputEditText>(R.id.etIp)
+        val etPass = view.findViewById<TextInputEditText>(R.id.etPassword)
+
+        AlertDialog.Builder(this)
+            .setTitle("Manual Connect")
+            .setView(view)
+            .setPositiveButton("Connect") { _, _ ->
+                val ip = etIp.text.toString()
+                if (ip.isNotEmpty()) {
+                    val intent = Intent(this, ChatActivity::class.java).apply {
+                        putExtra("serverIp", ip)
+                        putExtra("serverName", "Remote Room")
+                        putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
+                        putExtra("password", etPass.text.toString().ifEmpty { null })
                     }
+                    startActivity(intent)
                 }
             }
-        } catch (e: Exception) {}
-        return result
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun showProfileDialog() {
+        val view = layoutInflater.inflate(R.layout.dialog_profile, null)
+        val etName = view.findViewById<TextInputEditText>(R.id.etUserName)
+        etName.setText(DeviceUtils.getUserName(this))
+
+        AlertDialog.Builder(this)
+            .setTitle("My Profile")
+            .setView(view)
+            .setPositiveButton("Save") { _, _ ->
+                val newName = etName.text.toString()
+                if (newName.isNotEmpty()) {
+                    DeviceUtils.setUserName(this, newName)
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        nsdHelper.stopDiscovery()
+        nsdHelper?.stopDiscovery()
     }
 }

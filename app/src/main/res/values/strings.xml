@@ -1,21 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">LanChat محادثة محلية</string>
-    <string name="start_server">تشغيل كسيرفر (مستضيف)</string>
-    <string name="join_server">الانضمام لسيرفر موجود</string>
-    <string name="server_running">السيرفر يعمل على</string>
-    <string name="enter_name">اسمك في المحادثة</string>
-    <string name="enter_ip">عنوان IP للسيرفر</string>
-    <string name="connect">اتصال</string>
-    <string name="type_message">اكتب رسالة...</string>
-    <string name="send">إرسال</string>
-    <string name="connected_devices">الأجهزة المتصلة</string>
-    <string name="not_connected">غير متصل</string>
-    <string name="connecting">جاري الاتصال...</string>
-    <string name="connected">متصل ✓</string>
-    <string name="stop_server">إيقاف السيرفر</string>
-    <string name="disconnect">قطع الاتصال</string>
-    <string name="image_message">صورة</string>
-    <string name="sending_image">جاري إرسال الصورة...</string>
-    <string name="image_too_large">الصورة كبيرة جداً، حاول صورة أخرى</string>
+    <string name="app_name">LanChat Pro</string>
+    <string name="start_server">Host a Room</string>
+    <string name="join_server">Join a Room</string>
+    <string name="server_running">Server running at</string>
+    <string name="enter_name">Display Name</string>
+    <string name="enter_ip">Server IP Address</string>
+    <string name="connect">Connect</string>
+    <string name="type_message">Type a message...</string>
+    <string name="send">Send</string>
+    <string name="connected_devices">Connected Users</string>
+    <string name="not_connected">Disconnected</string>
+    <string name="connecting">Connecting...</string>
+    <string name="connected">Connected</string>
+    <string name="stop_server">Stop Server</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="image_message">Photo</string>
+    <string name="sending_image">Sending photo...</string>
+    <string name="image_too_large">Image is too large</string>
+    
+    <string name="tab_chats">Active Chats</string>
+    <string name="tab_discover">Discover</string>
+    <string name="empty_chats">No conversations yet</string>
+    <string name="scanning">Scanning for servers...</string>
+    <string name="manual_connect">Manual Connect</string>
+    <string name="host_room">Host Room</string>
+    <string name="hardware_id">Hardware ID: %1$s</string>
+    <string name="edit_profile">Edit Profile</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="set_password">Set Room Password (Optional)</string>
+    <string name="enter_password">Enter Room Password</string>
+    <string name="kick_user">Kick User</string>
+    <string name="user_typing">%1$s is typing...</string>
 </resources>

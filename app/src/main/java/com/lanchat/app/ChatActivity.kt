@@ -26,25 +26,20 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
     private lateinit var adapter: MessageAdapter
     private var client: ChatClient? = null
     private lateinit var myUserId: String
-    private var userName: String = "أنا"
+    private var userName: String = "Me"
     private var serverIp: String = "127.0.0.1"
-    private var serverName: String = "محادثة"
+    private var serverName: String = "Chat Room"
     private var port: Int = ChatServer.DEFAULT_PORT
     private var isInForeground = false
     private var replyMessage: UiMessage? = null
 
     private val db by lazy { ChatDatabase.getDatabase(this) }
 
-    private val pickImageLauncher = registerForActivityResult(
+    private val pickFileLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            val type = contentResolver.getType(uri)
-            if (type?.startsWith("image/") == true) {
-                sendImageFromUri(uri)
-            } else {
-                sendFileFromUri(uri)
-            }
+            handleSelectedUri(uri)
         }
     }
 
@@ -54,9 +49,9 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         setContentView(binding.root)
 
         myUserId = com.lanchat.app.util.DeviceUtils.getUniqueId(this)
-        userName = intent.getStringExtra("userName") ?: "أنا"
+        userName = intent.getStringExtra("userName") ?: "Me"
         serverIp = intent.getStringExtra("serverIp") ?: "127.0.0.1"
-        serverName = intent.getStringExtra("serverName") ?: "محادثة"
+        serverName = intent.getStringExtra("serverName") ?: "Chat Room"
         port = intent.getIntExtra("port", ChatServer.DEFAULT_PORT)
 
         binding.tvChatTitle.text = serverName
@@ -70,9 +65,8 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
     override fun onResume() {
         super.onResume()
         isInForeground = true
-        // Mark all messages as seen when entering the chat
         lifecycleScope.launch {
-            // Logic to send "seen" status for all other's messages can be added here
+            db.chatDao().markAsRead(serverIp)
         }
     }
 
@@ -103,31 +97,34 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
     private fun setupListeners() {
         binding.btnSend.setOnClickListener { sendCurrentMessage() }
-        binding.btnAttach.setOnClickListener { pickImageLauncher.launch("*/*") }
+        binding.btnAttach.setOnClickListener { pickFileLauncher.launch("*/*") }
         binding.btnBack.setOnClickListener { finish() }
         binding.btnCancelReply.setOnClickListener { hideReplyLayout() }
         
         var isRecording = false
         val audioFile = java.io.File(cacheDir, "voice_msg.mp4")
         binding.btnVoice.setOnClickListener {
-            if (!isRecording) {
-                com.lanchat.app.util.AudioUtils.startRecording(this, audioFile)
-                binding.btnVoice.setColorFilter(getColor(R.color.bubble_me))
-                Toast.makeText(this, "جاري التسجيل...", Toast.LENGTH_SHORT).show()
-                isRecording = true
-            } else {
-                com.lanchat.app.util.AudioUtils.stopRecording()
-                binding.btnVoice.clearColorFilter()
-                val base64 = com.lanchat.app.util.AudioUtils.encodeAudioFile(audioFile)
-                client?.sendVoice(base64)
-                saveMessageLocally(UUID.randomUUID().toString(), "[رسالة صوتية]", System.currentTimeMillis(), false, base64, true, "أنا", myUserId, null, null)
+            try {
+                if (!isRecording) {
+                    com.lanchat.app.util.AudioUtils.startRecording(this, audioFile)
+                    binding.btnVoice.setColorFilter(getColor(R.color.secondary))
+                    Toast.makeText(this, "Recording...", Toast.LENGTH_SHORT).show()
+                    isRecording = true
+                } else {
+                    com.lanchat.app.util.AudioUtils.stopRecording()
+                    binding.btnVoice.clearColorFilter()
+                    val base64 = com.lanchat.app.util.AudioUtils.encodeAudioFile(audioFile)
+                    if (base64 != null) {
+                        val messageId = UUID.randomUUID().toString()
+                        saveMessageLocally(messageId, "Voice message", System.currentTimeMillis(), ChatMessage.TYPE_VOICE, null, true, "Me", myUserId, base64)
+                        client?.sendVoice(base64, messageId)
+                    }
+                    isRecording = false
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this, "Audio Error: ${e.message}", Toast.LENGTH_SHORT).show()
                 isRecording = false
             }
-        }
-
-        binding.btnUsers.setOnClickListener {
-            val visible = binding.usersScroll.visibility == View.VISIBLE
-            binding.usersScroll.visibility = if (visible) View.GONE else View.VISIBLE
         }
 
         binding.etMessage.addTextChangedListener(object : android.text.TextWatcher {
@@ -145,20 +142,21 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
                 val uiMessages = entities.map { 
                     UiMessage(
                         id = it.id,
-                        serverId = it.serverId,
                         sender = it.sender,
+                        senderId = it.senderId,
                         text = it.text,
                         timestamp = it.timestamp,
                         isMine = it.isMine,
-                        isSystem = false,
-                        isImage = it.isImage,
+                        type = it.type,
                         imageData = it.imageData,
-                        isFile = it.isFile,
+                        fileData = it.fileData,
                         fileName = it.fileName,
-                        isVoice = it.isVoice,
+                        voiceData = it.voiceData,
                         replyToId = it.replyToId,
                         replyToText = it.replyToText,
-                        status = it.status
+                        replyToSender = it.replyToSender,
+                        status = it.status,
+                        avatar = it.avatar
                     )
                 }
                 adapter.setMessages(uiMessages)
@@ -168,7 +166,7 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
     }
 
     private fun connectToServer() {
-        binding.tvStatus.text = "جاري الاتصال..."
+        binding.tvStatus.text = "Connecting..."
         val pass = intent.getStringExtra("password")
         client = ChatClient(serverIp, port, userName, myUserId, this, pass)
         client?.connect()
@@ -181,47 +179,63 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         val messageId = UUID.randomUUID().toString()
         val timestamp = System.currentTimeMillis()
 
-        // Save locally first
         saveMessageLocally(
             id = messageId,
             text = text,
             ts = timestamp,
-            isImg = false,
+            type = ChatMessage.TYPE_MESSAGE,
             replyToId = replyMessage?.id,
-            replyToText = replyMessage?.text
+            replyToText = replyMessage?.text,
+            replyToSender = replyMessage?.sender
         )
         
         client?.sendMessage(
             text = text,
             id = messageId,
             replyToId = replyMessage?.id,
-            replyToText = replyMessage?.text
+            replyToText = replyMessage?.text,
+            replyToSender = replyMessage?.sender
         )
         
         binding.etMessage.setText("")
         hideReplyLayout()
     }
 
+    private fun handleSelectedUri(uri: Uri) {
+        val type = contentResolver.getType(uri)
+        if (type?.startsWith("image/") == true) {
+            sendImageFromUri(uri)
+        } else {
+            sendFileFromUri(uri)
+        }
+    }
+
     private fun sendImageFromUri(uri: Uri) {
-        Thread {
-            val base64 = ImageUtils.encodeImageFromUri(this, uri)
-            runOnUiThread {
+        lifecycleScope.launch {
+            try {
+                val base64 = ImageUtils.encodeImageFromUri(this@ChatActivity, uri)
                 if (base64 != null) {
                     val messageId = UUID.randomUUID().toString()
-                    val timestamp = System.currentTimeMillis()
-                    saveMessageLocally(messageId, "[صورة]", timestamp, true, base64)
+                    saveMessageLocally(messageId, "Sent a photo", System.currentTimeMillis(), ChatMessage.TYPE_IMAGE, base64)
                     client?.sendImage(base64)
                 }
+            } catch (e: Exception) {
+                Toast.makeText(this@ChatActivity, "Image Error", Toast.LENGTH_SHORT).show()
             }
-        }.start()
+        }
     }
 
     private fun sendFileFromUri(uri: Uri) {
-        val name = com.lanchat.app.util.ImageUtils.getFileName(this, uri) ?: "file"
-        val base64 = com.lanchat.app.util.FileUtils.getBase64FromUri(this, uri)
-        if (base64 != null) {
-            client?.sendFile(name, base64)
-            saveMessageLocally(UUID.randomUUID().toString(), "[ملف: $name]", System.currentTimeMillis(), false, null, true, "أنا", myUserId, null, null)
+        try {
+            val name = com.lanchat.app.util.ImageUtils.getFileName(this, uri) ?: "file"
+            val base64 = com.lanchat.app.util.FileUtils.getBase64FromUri(this, uri)
+            if (base64 != null) {
+                val messageId = UUID.randomUUID().toString()
+                saveMessageLocally(messageId, "Sent a file: $name", System.currentTimeMillis(), ChatMessage.TYPE_FILE, null, true, "Me", myUserId, null, null, null, name, base64)
+                client?.sendFile(name, base64, messageId)
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "File Error", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -229,13 +243,17 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         id: String,
         text: String,
         ts: Long,
-        isImg: Boolean,
+        type: String,
         imgData: String? = null,
         isMine: Boolean = true,
-        sender: String = "أنا",
+        sender: String = "Me",
         senderId: String = if(isMine) myUserId else "other",
+        voiceData: String? = null,
         replyToId: String? = null,
-        replyToText: String? = null
+        replyToText: String? = null,
+        replyToSender: String? = null,
+        fileName: String? = null,
+        fileData: String? = null
     ) {
         lifecycleScope.launch {
             val entity = MessageEntity(
@@ -246,18 +264,19 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
                 text = text,
                 timestamp = ts,
                 isMine = isMine,
-                isImage = isImg,
+                type = type,
                 imageData = imgData,
+                voiceData = voiceData,
                 replyToId = replyToId,
-                replyToText = replyToText
+                replyToText = replyToText,
+                replyToSender = replyToSender,
+                fileName = fileName,
+                fileData = fileData,
+                status = if(isMine) MessageStatus.SENDING else MessageStatus.SENT
             )
             db.chatDao().insertMessage(entity)
             
-            val lastText = when {
-                isImg -> "[صورة]"
-                else -> text
-            }
-            val conv = ConversationEntity(serverIp, serverName, lastText, ts, 0)
+            val conv = ConversationEntity(serverIp, serverName, text, ts, 0)
             db.chatDao().insertOrUpdateConversation(conv)
         }
     }
@@ -266,15 +285,15 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
     override fun onConnected() {
         runOnUiThread {
-            binding.tvStatus.text = "متصل"
+            binding.tvStatus.text = "Connected"
             binding.statusDot.background.setTint(getColor(R.color.online_green))
         }
     }
 
     override fun onDisconnected() {
         runOnUiThread {
-            binding.tvStatus.text = "غير متصل"
-            binding.statusDot.background.setTint(getColor(R.color.text_secondary))
+            binding.tvStatus.text = "Disconnected"
+            binding.statusDot.background.setTint(getColor(R.color.slate_500))
         }
     }
 
@@ -285,84 +304,63 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
         runOnUiThread {
             when (type) {
-                "message", "image" -> {
+                ChatMessage.TYPE_MESSAGE, ChatMessage.TYPE_IMAGE, ChatMessage.TYPE_FILE, ChatMessage.TYPE_VOICE -> {
                     if (!isMine) {
                         val msgId = json.optString("id")
                         val sender = json.optString("sender")
                         val text = json.optString("text")
                         val ts = json.optLong("timestamp")
-                        val isImg = type == "image"
-                        val imgData = json.optString("image", null)
-                        val rId = json.optString("replyToId", null)
-                        val rText = json.optString("replyToText", null)
                         
                         saveMessageLocally(
                             id = msgId,
                             text = text,
                             ts = ts,
-                            isImg = isImg,
-                            imgData = imgData,
+                            type = type,
+                            imgData = json.optString("imageData", null),
                             isMine = false,
                             sender = sender,
                             senderId = senderId,
-                            replyToId = rId,
-                            replyToText = rText
+                            voiceData = json.optString("voiceData", null),
+                            replyToId = json.optString("replyToId", null),
+                            replyToText = json.optString("replyToText", null),
+                            replyToSender = json.optString("replyToSender", null),
+                            fileName = json.optString("fileName", null),
+                            fileData = json.optString("fileData", null)
                         )
                         
                         if (!isInForeground) {
-                            MessageNotifier.show(this, sender, if(isImg) "أرسل صورة" else text)
+                            MessageNotifier.show(this, sender, text)
                         }
                         
-                        client?.sendStatusUpdate(msgId, MessageEntity.STATUS_DELIVERED)
+                        client?.sendStatusUpdate(msgId, MessageStatus.DELIVERED)
                         if (isInForeground) {
-                            client?.sendStatusUpdate(msgId, MessageEntity.STATUS_SEEN)
+                            client?.sendStatusUpdate(msgId, MessageStatus.SEEN)
+                        }
+                    } else {
+                        // Update status to SENT for my own message
+                        val msgId = json.optString("id")
+                        lifecycleScope.launch {
+                            db.chatDao().updateMessageStatus(msgId, MessageStatus.SENT)
                         }
                     }
                 }
-                "typing" -> {
+                ChatMessage.TYPE_TYPING -> {
                     if (!isMine) {
                         val isTyping = json.optBoolean("isTyping")
                         binding.tvTyping.visibility = if (isTyping) View.VISIBLE else View.GONE
                     }
                 }
-                "file", "voice" -> {
-                    if (!isMine) {
-                        val msgId = json.optString("id")
-                        val sender = json.optString("sender")
-                        val text = json.optString("text")
-                        val ts = json.optLong("timestamp")
-                        val fName = json.optString("fileName", null)
-                        val fData = json.optString("fileData", null)
-                        
-                        saveMessageLocally(
-                            id = msgId,
-                            text = text,
-                            ts = ts,
-                            isImg = false,
-                            imgData = fData,
-                            isMine = false,
-                            sender = sender,
-                            senderId = senderId,
-                            replyToId = json.optString("replyToId", null),
-                            replyToText = json.optString("replyToText", null)
-                        )
-                    }
-                }
-                "error" -> {
-                    val msg = json.optString("message")
-                    Toast.makeText(this@ChatActivity, msg, Toast.LENGTH_LONG).show()
-                    if (msg.contains("كلمة السر")) finish()
-                }
-                "status_update" -> {
+                ChatMessage.TYPE_STATUS_UPDATE -> {
                     val msgId = json.optString("messageId")
                     val status = json.optInt("status")
                     lifecycleScope.launch {
                         db.chatDao().updateMessageStatus(msgId, status)
                     }
                 }
-                "userlist" -> {
-                    val users = json.optJSONArray("users")
-                    renderUserChips(users)
+                "error" -> {
+                    val msg = json.optString("message")
+                    Toast.makeText(this@ChatActivity, msg, Toast.LENGTH_LONG).show()
+                    if (msg.contains("password")) finish()
                 }
             }
         }
@@ -370,18 +368,6 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
     override fun onError(message: String) {
         runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
-    }
-
-    private fun renderUserChips(users: org.json.JSONArray?) {
-        binding.usersContainer.removeAllViews()
-        if (users == null) return
-        for (i in 0 until users.length()) {
-            val u = users.getJSONObject(i)
-            val name = u.optString("name")
-            val chip = layoutInflater.inflate(R.layout.item_user_chip, binding.usersContainer, false)
-            chip.findViewById<android.widget.TextView>(R.id.tvUserChipName).text = name
-            binding.usersContainer.addView(chip)
-        }
     }
 
     override fun onDestroy() {

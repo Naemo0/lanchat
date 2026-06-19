@@ -14,8 +14,7 @@ import com.lanchat.app.R
 import org.json.JSONObject
 
 /**
- * خدمة تعمل في الخلفية لإبقاء سيرفر المحادثة شغّالاً
- * حتى لو انتقل المستخدم لتطبيق آخر أو أُغلقت الشاشة.
+ * Professional Foreground Service to host LanChat Server.
  */
 class ChatServerService : Service() {
 
@@ -35,17 +34,17 @@ class ChatServerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val hostName = intent?.getStringExtra("hostName") ?: "المستضيف"
+        val hostName = intent?.getStringExtra("hostName") ?: "Host"
         val port = intent?.getIntExtra("port", ChatServer.DEFAULT_PORT) ?: ChatServer.DEFAULT_PORT
         val password = intent?.getStringExtra("password")
 
         if (!isRunning) {
-            startForeground(NOTIFICATION_ID, buildNotification("جاري تشغيل السيرفر..."))
+            startForeground(NOTIFICATION_ID, buildNotification("Starting server..."))
 
             server = ChatServer(port, hostName, password, object : ChatServer.ServerListener {
                 override fun onMessageReceived(message: JSONObject) {}
                 override fun onUserListChanged(users: List<Pair<String, String>>) {
-                    updateNotification("متصل: ${users.size} مستخدم")
+                    updateNotification("Connected: ${users.size} users")
                 }
                 override fun onClientConnected(id: String, name: String) {}
                 override fun onClientDisconnected(id: String, name: String) {}
@@ -57,14 +56,14 @@ class ChatServerService : Service() {
                 isRunning = true
                 
                 nsdHelper = NsdHelper(this)
-                nsdHelper?.registerService(port, "$hostName's Chat")
+                nsdHelper?.registerService(port, "$hostName's Room")
 
                 val ips = server?.getAllLocalIpAddresses() ?: emptyList()
-                val ipText = if (ips.isNotEmpty()) ips.joinToString(" / ") else "127.0.0.1"
-                updateNotification("السيرفر يعمل على $ipText:$port")
+                val ipText = if (ips.isNotEmpty()) ips.first() else "127.0.0.1"
+                updateNotification("Hosting at $ipText:$port")
             } catch (e: Exception) {
                 isRunning = false
-                updateNotification("فشل تشغيل السيرفر: ${e.message}")
+                updateNotification("Failed to start: ${e.message}")
             }
         }
 
@@ -76,8 +75,7 @@ class ChatServerService : Service() {
         try {
             nsdHelper?.unregisterService()
             server?.stop()
-        } catch (e: Exception) {
-        }
+        } catch (e: Exception) {}
         server = null
         isRunning = false
     }
@@ -88,7 +86,7 @@ class ChatServerService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "خدمة سيرفر المحادثة",
+                "LanChat Server Service",
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(NotificationManager::class.java)
@@ -104,11 +102,12 @@ class ChatServerService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("LanChat - السيرفر يعمل")
+            .setContentTitle("LanChat Pro - Room Hosting")
             .setContentText(text)
-            .setSmallIcon(R.drawable.ic_notification)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
+            .setCategory(Notification.CATEGORY_SERVICE)
             .build()
     }
 

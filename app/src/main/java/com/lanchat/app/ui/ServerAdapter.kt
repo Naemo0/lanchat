@@ -14,7 +14,7 @@ class ServerAdapter(private val onServerClick: (NsdServiceInfo) -> Unit) :
     private val servers = mutableListOf<NsdServiceInfo>()
 
     fun addServer(serviceInfo: NsdServiceInfo) {
-        if (servers.none { it.host.hostAddress == serviceInfo.host.hostAddress }) {
+        if (servers.none { it.host?.hostAddress == serviceInfo.host?.hostAddress }) {
             servers.add(serviceInfo)
             notifyItemInserted(servers.size - 1)
         }
@@ -37,7 +37,7 @@ class ServerAdapter(private val onServerClick: (NsdServiceInfo) -> Unit) :
     override fun onBindViewHolder(holder: ServerViewHolder, position: Int) {
         val server = servers[position]
         holder.name.text = server.serviceName
-        holder.ip.text = server.host.hostAddress
+        holder.ip.text = server.host?.hostAddress ?: "Unknown IP"
         holder.itemView.setOnClickListener { onServerClick(server) }
     }
 

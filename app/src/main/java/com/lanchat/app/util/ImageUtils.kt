@@ -8,24 +8,13 @@ import android.util.Base64
 import java.io.ByteArrayOutputStream
 
 /**
- * أدوات مساعدة لمعالجة الصور قبل إرسالها عبر الشبكة المحلية:
- * - تصغير الصورة لأبعاد معقولة (لتفادي إرسال صور ضخمة عبر WebSocket)
- * - ضغطها بصيغة JPEG
- * - ترميزها إلى Base64 لتُحمل داخل رسالة JSON
- * - وعكس العملية عند الاستقبال
+ * Professional Image Utilities for LanChat Pro.
  */
 object ImageUtils {
 
-    // أقصى أبعاد للصورة بعد التصغير (الأكبر بينهما لن يتجاوز هذه القيمة)
-    private const val MAX_DIMENSION = 1024
+    private const val MAX_DIMENSION = 1280
+    private const val JPEG_QUALITY = 80
 
-    // جودة ضغط JPEG (0-100)
-    private const val JPEG_QUALITY = 70
-
-    /**
-     * يحمّل صورة من Uri، يصغّرها ويضغطها، ويعيدها كنص Base64.
-     * يعيد null في حال فشل القراءة أو فك الترميز.
-     */
     fun encodeImageFromUri(context: Context, uri: Uri): String? {
         return try {
             val input = context.contentResolver.openInputStream(uri) ?: return null
@@ -43,7 +32,6 @@ object ImageUtils {
         }
     }
 
-    /** يحوّل نص Base64 إلى Bitmap لعرضه في الواجهة */
     fun decodeBase64ToBitmap(base64: String): Bitmap? {
         return try {
             val bytes = Base64.decode(base64, Base64.NO_WRAP)

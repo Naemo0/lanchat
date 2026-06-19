@@ -3,7 +3,9 @@ package com.lanchat.app.util
 import android.content.Context
 import android.media.MediaPlayer
 import android.media.MediaRecorder
+import android.os.Build
 import android.util.Base64
+import android.util.Log
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -11,41 +13,80 @@ import java.io.FileOutputStream
 object AudioUtils {
     private var recorder: MediaRecorder? = null
     private var mediaPlayer: MediaPlayer? = null
+    private const val TAG = "AudioUtils"
 
     fun startRecording(context: Context, outputFile: File) {
-        recorder = MediaRecorder().apply {
-            setAudioSource(MediaRecorder.AudioSource.MIC)
-            setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
-            setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
-            setOutputFile(outputFile.absolutePath)
-            prepare()
-            start()
+        try {
+            recorder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                MediaRecorder(context)
+            } else {
+                MediaRecorder()
+            }.apply {
+                setAudioSource(MediaRecorder.AudioSource.MIC)
+                setOutputFormat(MediaRecorder.OutputFormat.MPEG_4)
+                setAudioEncoder(MediaRecorder.AudioEncoder.AAC)
+                setAudioEncodingBitRate(128000)
+                setAudioSamplingRate(44100)
+                setOutputFile(outputFile.absolutePath)
+                prepare()
+                start()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Start recording failed", e)
+            throw e
         }
     }
 
     fun stopRecording() {
-        recorder?.apply {
-            stop()
-            release()
+        try {
+            recorder?.apply {
+                stop()
+                reset()
+                release()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Stop recording failed", e)
+        } finally {
+            recorder = null
         }
-        recorder = null
     }
 
     fun playAudio(base64: String, context: Context) {
-        val tempFile = File(context.cacheDir, "temp_audio.mp4")
-        val bytes = Base64.decode(base64, Base64.DEFAULT)
-        FileOutputStream(tempFile).use { it.write(bytes) }
+        try {
+            val tempFile = File(context.cacheDir, "temp_audio.mp4")
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            FileOutputStream(tempFile).use { it.write(bytes) }
 
-        mediaPlayer?.release()
-        mediaPlayer = MediaPlayer().apply {
-            setDataSource(tempFile.absolutePath)
-            prepare()
-            start()
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer().apply {
+                setDataSource(tempFile.absolutePath)
+                prepare()
+                start()
+                setOnCompletionListener { 
+                    it.release()
+                    mediaPlayer = null
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Play audio failed", e)
         }
     }
 
-    fun encodeAudioFile(file: File): String {
-        val bytes = FileInputStream(file).use { it.readBytes() }
-        return Base64.encodeToString(bytes, Base64.DEFAULT)
+    fun encodeAudioFile(file: File): String? {
+        return try {
+            if (!file.exists()) return null
+            val bytes = FileInputStream(file).use { it.readBytes() }
+            Base64.encodeToString(bytes, Base64.DEFAULT)
+        } catch (e: Exception) {
+            Log.e(TAG, "Encode audio failed", e)
+            null
+        }
+    }
+    
+    fun release() {
+        recorder?.release()
+        recorder = null
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 }

@@ -13,29 +13,27 @@ data class MessageEntity(
     val text: String,
     val timestamp: Long,
     val isMine: Boolean,
-    val isImage: Boolean = false,
+    val type: String = ChatMessage.TYPE_MESSAGE,
     val imageData: String? = null,
-    val isFile: Boolean = false,
+    val fileData: String? = null,
     val fileName: String? = null,
-    val isVoice: Boolean = false,
+    val voiceData: String? = null,
     val replyToId: String? = null,
     val replyToText: String? = null,
-    val status: Int = STATUS_SENT
-) {
-    companion object {
-        const val STATUS_SENT = 0
-        const val STATUS_DELIVERED = 1
-        const val STATUS_SEEN = 2
-    }
-}
+    val replyToSender: String? = null,
+    var status: Int = MessageStatus.SENT,
+    val avatar: String? = null
+)
 
 @Entity(tableName = "conversations")
 data class ConversationEntity(
-    @PrimaryKey val serverIp: String,
-    val serverName: String,
+    @PrimaryKey val id: String, // Server IP or unique ID
+    val name: String,
     val lastMessage: String,
     val lastTimestamp: Long,
-    val unreadCount: Int = 0
+    val unreadCount: Int = 0,
+    val isServer: Boolean = false,
+    val avatar: String? = null
 )
 
 @Dao
@@ -60,9 +58,15 @@ interface ChatDao {
     
     @Query("DELETE FROM messages WHERE serverId = :serverId")
     suspend fun deleteMessagesForServer(serverId: String)
+
+    @Query("SELECT * FROM messages WHERE serverId = :serverId AND text LIKE '%' || :query || '%' ORDER BY timestamp DESC")
+    suspend fun searchMessages(serverId: String, query: String): List<MessageEntity>
+
+    @Query("UPDATE conversations SET unreadCount = 0 WHERE id = :serverId")
+    suspend fun markAsRead(serverId: String)
 }
 
-@Database(entities = [MessageEntity::class, ConversationEntity::class], version = 1, exportSchema = false)
+@Database(entities = [MessageEntity::class, ConversationEntity::class], version = 2, exportSchema = false)
 abstract class ChatDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 
@@ -76,7 +80,9 @@ abstract class ChatDatabase : RoomDatabase() {
                     context.applicationContext,
                     ChatDatabase::class.java,
                     "chat_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

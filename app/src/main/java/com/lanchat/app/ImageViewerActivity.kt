@@ -7,7 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.lanchat.app.util.ImageUtils
 
 /**
- * شاشة لعرض الصور المُستقبلة أو المُرسلة في وضع ملء الشاشة.
+ * Full-screen Image Viewer for LanChat.
  */
 class ImageViewerActivity : AppCompatActivity() {
 
