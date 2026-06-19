@@ -15,8 +15,8 @@ class ChatClient(
     val port: Int,
     val userName: String,
     val userId: String,
-    private val password: String? = null,
-    private val listener: ClientListener
+    private val listener: ClientListener,
+    private val password: String? = null
 ) {
 
     interface ClientListener {

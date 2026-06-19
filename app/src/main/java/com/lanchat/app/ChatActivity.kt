@@ -143,7 +143,23 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         lifecycleScope.launch {
             db.chatDao().getMessagesForServer(serverIp).collectLatest { entities ->
                 val uiMessages = entities.map { 
-                    UiMessage(it.id, it.serverId, it.sender, it.text, it.timestamp, it.isMine, false, it.isImage, it.imageData, it.status)
+                    UiMessage(
+                        id = it.id,
+                        serverId = it.serverId,
+                        sender = it.sender,
+                        text = it.text,
+                        timestamp = it.timestamp,
+                        isMine = it.isMine,
+                        isSystem = false,
+                        isImage = it.isImage,
+                        imageData = it.imageData,
+                        isFile = it.isFile,
+                        fileName = it.fileName,
+                        isVoice = it.isVoice,
+                        replyToId = it.replyToId,
+                        replyToText = it.replyToText,
+                        status = it.status
+                    )
                 }
                 adapter.setMessages(uiMessages)
                 binding.recyclerMessages.scrollToPosition(adapter.itemCount - 1)
@@ -153,7 +169,8 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
     private fun connectToServer() {
         binding.tvStatus.text = "جاري الاتصال..."
-        client = ChatClient(serverIp, port, userName, myUserId, this)
+        val pass = intent.getStringExtra("password")
+        client = ChatClient(serverIp, port, userName, myUserId, this, pass)
         client?.connect()
     }
 

@@ -53,15 +53,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupAdapters() {
         serverAdapter = ServerAdapter { serviceInfo ->
-            val name = userNameOrDefault()
-            joinChat(name, serviceInfo.host.hostAddress, serviceInfo.port, serviceInfo.serviceName)
+            showJoinPasswordDialog(serviceInfo.host.hostAddress, serviceInfo.port, serviceInfo.serviceName)
         }
         binding.rvDiscoveredServers.layoutManager = LinearLayoutManager(this)
         binding.rvDiscoveredServers.adapter = serverAdapter
 
         convAdapter = ConversationAdapter { conv ->
-            val name = userNameOrDefault()
-            joinChat(name, conv.serverIp, ChatServer.DEFAULT_PORT, conv.serverName)
+            // For saved conversations, we might not know if it had a password,
+            // but for simplicity, we try to join. If it fails, ChatActivity will handle.
+            joinChat(userNameOrDefault(), conv.serverIp, ChatServer.DEFAULT_PORT, conv.serverName)
         }
         binding.rvConversations.layoutManager = LinearLayoutManager(this)
         binding.rvConversations.adapter = convAdapter
