@@ -185,8 +185,8 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
             ts = timestamp,
             type = ChatMessage.TYPE_MESSAGE,
             replyToId = replyMessage?.id,
-            replyToText = replyMessage?.text,
-            replyToSender = replyMessage?.sender
+            replyToText = replyMessage?.text ?: "",
+            replyToSender = replyMessage?.sender ?: ""
         )
         
         client?.sendMessage(
@@ -231,7 +231,22 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
             val base64 = com.lanchat.app.util.FileUtils.getBase64FromUri(this, uri)
             if (base64 != null) {
                 val messageId = UUID.randomUUID().toString()
-                saveMessageLocally(messageId, "Sent a file: $name", System.currentTimeMillis(), ChatMessage.TYPE_FILE, null, true, "Me", myUserId, null, null, null, name, base64)
+                saveMessageLocally(
+                    id = messageId, 
+                    text = "Sent a file: $name", 
+                    ts = System.currentTimeMillis(), 
+                    type = ChatMessage.TYPE_FILE, 
+                    imgData = null, 
+                    isMine = true, 
+                    sender = "Me", 
+                    senderId = myUserId, 
+                    voiceData = null, 
+                    replyToId = null, 
+                    replyToText = null, 
+                    replyToSender = null, 
+                    fileName = name, 
+                    fileData = base64
+                )
                 client?.sendFile(name, base64, messageId)
             }
         } catch (e: Exception) {
