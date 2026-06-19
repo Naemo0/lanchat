@@ -1,49 +1,38 @@
 package com.lanchat.app
 
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.widget.HorizontalScrollView
-import android.widget.ImageButton
-import android.widget.LinearLayout
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
-import com.lanchat.app.data.UiMessage
+import com.lanchat.app.data.*
+import com.lanchat.app.databinding.ActivityChatBinding
 import com.lanchat.app.network.ChatClient
 import com.lanchat.app.network.ChatServer
-import com.lanchat.app.network.ChatServerService
+import com.lanchat.app.network.MessageNotifier
 import com.lanchat.app.ui.MessageAdapter
 import com.lanchat.app.util.ImageUtils
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.util.UUID
+import java.util.*
 
 class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
-    private lateinit var recycler: RecyclerView
+    private lateinit var binding: ActivityChatBinding
     private lateinit var adapter: MessageAdapter
-    private lateinit var etMessage: android.widget.EditText
-    private lateinit var btnSend: ImageButton
-    private lateinit var btnAttach: ImageButton
-    private lateinit var tvStatus: TextView
-    private lateinit var tvChatTitle: TextView
-    private lateinit var statusDot: View
-    private lateinit var usersScroll: HorizontalScrollView
-    private lateinit var usersContainer: LinearLayout
-    private lateinit var btnUsers: ImageButton
-    private lateinit var btnBack: ImageButton
-
     private var client: ChatClient? = null
     private val myUserId = UUID.randomUUID().toString()
     private var userName: String = "أنا"
-    private var mode: String = "client"
     private var serverIp: String = "127.0.0.1"
+    private var serverName: String = "محادثة"
     private var port: Int = ChatServer.DEFAULT_PORT
-    private var usersVisible = false
+    private var isInForeground = false
+
+    private val db by lazy { ChatDatabase.getDatabase(this) }
 
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -53,169 +42,162 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_chat)
+        binding = ActivityChatBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
         userName = intent.getStringExtra("userName") ?: "أنا"
-        mode = intent.getStringExtra("mode") ?: "client"
         serverIp = intent.getStringExtra("serverIp") ?: "127.0.0.1"
+        serverName = intent.getStringExtra("serverName") ?: "محادثة"
         port = intent.getIntExtra("port", ChatServer.DEFAULT_PORT)
 
-        bindViews()
+        binding.tvChatTitle.text = serverName
+        
         setupRecycler()
         setupListeners()
-
-        tvChatTitle.text = if (mode == "host") "محادثة (أنت المستضيف)" else "محادثة الشبكة المحلية"
-
+        observeMessages()
         connectToServer()
     }
 
-    private fun bindViews() {
-        recycler = findViewById(R.id.recyclerMessages)
-        etMessage = findViewById(R.id.etMessage)
-        btnSend = findViewById(R.id.btnSend)
-        btnAttach = findViewById(R.id.btnAttach)
-        tvStatus = findViewById(R.id.tvStatus)
-        tvChatTitle = findViewById(R.id.tvChatTitle)
-        statusDot = findViewById(R.id.statusDot)
-        usersScroll = findViewById(R.id.usersScroll)
-        usersContainer = findViewById(R.id.usersContainer)
-        btnUsers = findViewById(R.id.btnUsers)
-        btnBack = findViewById(R.id.btnBack)
+    override fun onResume() {
+        super.onResume()
+        isInForeground = true
+        // Mark all messages as seen when entering the chat
+        lifecycleScope.launch {
+            // Logic to send "seen" status for all other's messages can be added here
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isInForeground = false
     }
 
     private fun setupRecycler() {
         adapter = MessageAdapter(mutableListOf())
-        recycler.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
-        recycler.adapter = adapter
+        binding.recyclerMessages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
+        binding.recyclerMessages.adapter = adapter
     }
 
     private fun setupListeners() {
-        btnSend.setOnClickListener { sendCurrentMessage() }
+        binding.btnSend.setOnClickListener { sendCurrentMessage() }
+        binding.btnAttach.setOnClickListener { pickImageLauncher.launch("image/*") }
+        binding.btnBack.setOnClickListener { finish() }
+        binding.btnUsers.setOnClickListener {
+            val visible = binding.usersScroll.visibility == View.VISIBLE
+            binding.usersScroll.visibility = if (visible) View.GONE else View.VISIBLE
+        }
+    }
 
-        btnAttach.setOnClickListener {
-            if (client?.isOpen() != true) {
-                Toast.makeText(this, "غير متصل بالسيرفر", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
+    private fun observeMessages() {
+        lifecycleScope.launch {
+            db.chatDao().getMessagesForServer(serverIp).collectLatest { entities ->
+                val uiMessages = entities.map { 
+                    UiMessage(it.id, it.serverId, it.sender, it.text, it.timestamp, it.isMine, false, it.isImage, it.imageData, it.status)
+                }
+                adapter.setMessages(uiMessages)
+                binding.recyclerMessages.scrollToPosition(adapter.itemCount - 1)
             }
-            pickImageLauncher.launch("image/*")
         }
-
-        etMessage.setOnEditorActionListener { _, _, _ ->
-            sendCurrentMessage()
-            true
-        }
-
-        btnUsers.setOnClickListener {
-            usersVisible = !usersVisible
-            usersScroll.visibility = if (usersVisible) View.VISIBLE else View.GONE
-        }
-
-        btnBack.setOnClickListener { finish() }
     }
 
     private fun connectToServer() {
-        tvStatus.text = getString(R.string.connecting)
-        setStatusColor(false)
-
+        binding.tvStatus.text = "جاري الاتصال..."
         client = ChatClient(serverIp, port, userName, myUserId, this)
         client?.connect()
     }
 
     private fun sendCurrentMessage() {
-        val text = etMessage.text?.toString()?.trim()
+        val text = binding.etMessage.text?.toString()?.trim()
         if (text.isNullOrEmpty()) return
+        
+        val messageId = UUID.randomUUID().toString()
+        val timestamp = System.currentTimeMillis()
 
-        if (client?.isOpen() != true) {
-            Toast.makeText(this, "غير متصل بالسيرفر", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        client?.sendMessage(text)
-        etMessage.setText("")
+        // Save locally first
+        saveMessageLocally(messageId, text, timestamp, false)
+        
+        client?.sendMessage(text, messageId)
+        binding.etMessage.setText("")
     }
 
-    /** يضغط الصورة المختارة ويرسلها كرسالة من نوع "image" */
     private fun sendImageFromUri(uri: Uri) {
-        if (client?.isOpen() != true) {
-            Toast.makeText(this, "غير متصل بالسيرفر", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        Toast.makeText(this, getString(R.string.sending_image), Toast.LENGTH_SHORT).show()
-
         Thread {
             val base64 = ImageUtils.encodeImageFromUri(this, uri)
             runOnUiThread {
-                if (base64 == null) {
-                    Toast.makeText(this, getString(R.string.image_too_large), Toast.LENGTH_SHORT).show()
-                    return@runOnUiThread
+                if (base64 != null) {
+                    val messageId = UUID.randomUUID().toString()
+                    val timestamp = System.currentTimeMillis()
+                    saveMessageLocally(messageId, "[صورة]", timestamp, true, base64)
+                    client?.sendImage(base64)
                 }
-                client?.sendImage(base64)
             }
         }.start()
+    }
+
+    private fun saveMessageLocally(id: String, text: String, ts: Long, isImg: Boolean, imgData: String? = null, isMine: Boolean = true, sender: String = "أنا") {
+        lifecycleScope.launch {
+            val entity = MessageEntity(id, serverIp, sender, if(isMine) myUserId else "other", text, ts, isMine, isImg, imgData)
+            db.chatDao().insertMessage(entity)
+            
+            val conv = ConversationEntity(serverIp, serverName, if(isImg) "[صورة]" else text, ts, 0)
+            db.chatDao().insertOrUpdateConversation(conv)
+        }
     }
 
     // ===== ChatClient.ClientListener =====
 
     override fun onConnected() {
         runOnUiThread {
-            tvStatus.text = getString(R.string.connected)
-            setStatusColor(true)
+            binding.tvStatus.text = "متصل"
+            binding.statusDot.background.setTint(getColor(R.color.online_green))
         }
     }
 
     override fun onDisconnected() {
         runOnUiThread {
-            tvStatus.text = getString(R.string.not_connected)
-            setStatusColor(false)
+            binding.tvStatus.text = "غير متصل"
+            binding.statusDot.background.setTint(getColor(R.color.text_secondary))
         }
     }
 
     override fun onMessage(json: JSONObject) {
+        val type = json.optString("type")
+        val senderId = json.optString("senderId")
+        val isMine = senderId == myUserId
+
         runOnUiThread {
-            when (json.optString("type")) {
-                ChatMessageType.MESSAGE -> {
-                    val senderId = json.optString("senderId")
-                    val msg = UiMessage(
-                        id = json.optString("id"),
-                        sender = json.optString("sender"),
-                        text = json.optString("text"),
-                        timestamp = json.optLong("timestamp", System.currentTimeMillis()),
-                        isMine = senderId == myUserId,
-                        isSystem = false
-                    )
-                    adapter.addMessage(msg)
-                    recycler.scrollToPosition(adapter.itemCount - 1)
+            when (type) {
+                "message", "image" -> {
+                    if (!isMine) {
+                        val msgId = json.optString("id")
+                        val sender = json.optString("sender")
+                        val text = json.optString("text")
+                        val ts = json.optLong("timestamp")
+                        val isImg = type == "image"
+                        val imgData = json.optString("image", null)
+                        
+                        saveMessageLocally(msgId, text, ts, isImg, imgData, false, sender)
+                        
+                        if (!isInForeground) {
+                            MessageNotifier.show(this, sender, if(isImg) "أرسل صورة" else text)
+                        }
+                        
+                        // Send "delivered" status back
+                        client?.sendStatusUpdate(msgId, MessageEntity.STATUS_DELIVERED)
+                        // If in foreground, send "seen"
+                        if (isInForeground) {
+                            client?.sendStatusUpdate(msgId, MessageEntity.STATUS_SEEN)
+                        }
+                    }
                 }
-                ChatMessageType.IMAGE -> {
-                    val senderId = json.optString("senderId")
-                    val imgData = if (json.has("image")) json.optString("image") else null
-                    val msg = UiMessage(
-                        id = json.optString("id"),
-                        sender = json.optString("sender"),
-                        text = json.optString("text"),
-                        timestamp = json.optLong("timestamp", System.currentTimeMillis()),
-                        isMine = senderId == myUserId,
-                        isSystem = false,
-                        isImage = true,
-                        imageData = imgData
-                    )
-                    adapter.addMessage(msg)
-                    recycler.scrollToPosition(adapter.itemCount - 1)
+                "status_update" -> {
+                    val msgId = json.optString("messageId")
+                    val status = json.optInt("status")
+                    lifecycleScope.launch {
+                        db.chatDao().updateMessageStatus(msgId, status)
+                    }
                 }
-                ChatMessageType.SYSTEM -> {
-                    val msg = UiMessage(
-                        id = json.optString("id"),
-                        sender = "النظام",
-                        text = json.optString("text"),
-                        timestamp = json.optLong("timestamp", System.currentTimeMillis()),
-                        isMine = false,
-                        isSystem = true
-                    )
-                    adapter.addMessage(msg)
-                    recycler.scrollToPosition(adapter.itemCount - 1)
-                }
-                ChatMessageType.USERLIST -> {
+                "userlist" -> {
                     val users = json.optJSONArray("users")
                     renderUserChips(users)
                 }
@@ -224,46 +206,23 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
     }
 
     override fun onError(message: String) {
-        runOnUiThread {
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-            tvStatus.text = getString(R.string.not_connected)
-            setStatusColor(false)
-        }
+        runOnUiThread { Toast.makeText(this, message, Toast.LENGTH_SHORT).show() }
     }
 
     private fun renderUserChips(users: org.json.JSONArray?) {
-        usersContainer.removeAllViews()
+        binding.usersContainer.removeAllViews()
         if (users == null) return
         for (i in 0 until users.length()) {
             val u = users.getJSONObject(i)
             val name = u.optString("name")
-            val chip = layoutInflater.inflate(R.layout.item_user_chip, usersContainer, false)
-            chip.findViewById<TextView>(R.id.tvUserChipName).text = name
-            usersContainer.addView(chip)
+            val chip = layoutInflater.inflate(R.layout.item_user_chip, binding.usersContainer, false)
+            chip.findViewById<android.widget.TextView>(R.id.tvUserChipName).text = name
+            binding.usersContainer.addView(chip)
         }
-        btnUsers.alpha = if (users.length() > 0) 1f else 0.6f
-    }
-
-    private fun setStatusColor(connected: Boolean) {
-        val color = if (connected) {
-            getColor(R.color.online_green)
-        } else {
-            getColor(R.color.text_secondary)
-        }
-        statusDot.background.setTint(color)
     }
 
     override fun onDestroy() {
         super.onDestroy()
         client?.close()
-        // إذا كنا المستضيف، السيرفر يستمر بالعمل عبر الخدمة (Foreground Service)
-        // حتى يبقى متاحاً لباقي الأجهزة. يمكن إيقافه يدوياً من الإشعار إن لزم.
-    }
-
-    private object ChatMessageType {
-        const val MESSAGE = "message"
-        const val SYSTEM = "system"
-        const val USERLIST = "userlist"
-        const val IMAGE = "image"
     }
 }

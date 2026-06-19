@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.lanchat.app.ImageViewerActivity
 import com.lanchat.app.R
+import com.lanchat.app.data.MessageEntity
 import com.lanchat.app.data.UiMessage
 import com.lanchat.app.util.ImageUtils
 import java.text.SimpleDateFormat
@@ -57,6 +58,7 @@ class MessageAdapter(private val messages: MutableList<UiMessage>) :
             is MeViewHolder -> {
                 holder.text.text = msg.text
                 holder.time.text = timeStr
+                setStatus(holder.status, msg.status)
             }
             is OtherViewHolder -> {
                 holder.name.text = msg.sender
@@ -68,10 +70,31 @@ class MessageAdapter(private val messages: MutableList<UiMessage>) :
             }
             is ImageMeViewHolder -> {
                 bindImage(holder.image, holder.text, holder.time, msg, timeStr)
+                setStatus(holder.status, msg.status)
             }
             is ImageOtherViewHolder -> {
                 holder.name.text = msg.sender
                 bindImage(holder.image, holder.text, holder.time, msg, timeStr)
+            }
+        }
+    }
+
+    private fun setStatus(textView: TextView, status: Int) {
+        when (status) {
+            MessageEntity.STATUS_SENT -> {
+                textView.text = "✓"
+                textView.setTextColor(textView.context.getColor(R.color.text_on_primary))
+                textView.alpha = 0.6f
+            }
+            MessageEntity.STATUS_DELIVERED -> {
+                textView.text = "✓✓"
+                textView.setTextColor(textView.context.getColor(R.color.text_on_primary))
+                textView.alpha = 0.6f
+            }
+            MessageEntity.STATUS_SEEN -> {
+                textView.text = "✓✓"
+                textView.setTextColor(textView.context.getColor(R.color.online_green))
+                textView.alpha = 1.0f
             }
         }
     }
@@ -109,9 +132,24 @@ class MessageAdapter(private val messages: MutableList<UiMessage>) :
         notifyItemInserted(messages.size - 1)
     }
 
+    fun setMessages(newMessages: List<UiMessage>) {
+        messages.clear()
+        messages.addAll(newMessages)
+        notifyDataSetChanged()
+    }
+
+    fun updateMessageStatus(messageId: String, status: Int) {
+        val index = messages.indexOfFirst { it.id == messageId }
+        if (index != -1) {
+            messages[index].status = status
+            notifyItemChanged(index)
+        }
+    }
+
     class MeViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val text: TextView = view.findViewById(R.id.tvMessageText)
         val time: TextView = view.findViewById(R.id.tvTime)
+        val status: TextView = view.findViewById(R.id.tvStatus)
     }
 
     class OtherViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -128,6 +166,7 @@ class MessageAdapter(private val messages: MutableList<UiMessage>) :
         val image: ImageView = view.findViewById(R.id.ivMessageImage)
         val text: TextView = view.findViewById(R.id.tvMessageText)
         val time: TextView = view.findViewById(R.id.tvTime)
+        val status: TextView = view.findViewById(R.id.tvStatus)
     }
 
     class ImageOtherViewHolder(view: View) : RecyclerView.ViewHolder(view) {

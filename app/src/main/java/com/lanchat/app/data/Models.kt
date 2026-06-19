@@ -26,13 +26,15 @@ data class ChatMessage(
  */
 data class UiMessage(
     val id: String,
+    val serverId: String = "",
     val sender: String,
     val text: String,
     val timestamp: Long,
     val isMine: Boolean,
     val isSystem: Boolean = false,
     val isImage: Boolean = false,
-    val imageData: String? = null // Base64 لبيانات الصورة
+    val imageData: String? = null, // Base64 لبيانات الصورة
+    var status: Int = 0 // 0: Sent, 1: Delivered, 2: Seen
 )
 
 /**

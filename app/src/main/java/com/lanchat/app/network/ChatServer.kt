@@ -22,6 +22,7 @@ class ChatServer(
 
     companion object {
         const val DEFAULT_PORT = 8765
+        private const val SOCKET_READ_TIMEOUT = 60000 // مللي ثانية، مهلة قراءة السوكيت
     }
 
     interface ServerListener {
@@ -157,7 +158,7 @@ class ChatServer(
                         broadcastUserList()
                         broadcastSystem("$clientName انضم إلى المحادثة")
                     }
-                    "message", "image" -> {
+                    "message", "image", "status_update" -> {
                         listener.onMessageReceived(json)
                         broadcast(json)
                     }

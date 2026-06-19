@@ -107,10 +107,10 @@ class ChatClient(
         }
     }
 
-    fun sendMessage(text: String) {
+    fun sendMessage(text: String, messageId: String = UUID.randomUUID().toString()) {
         val json = JSONObject()
         json.put("type", "message")
-        json.put("id", UUID.randomUUID().toString())
+        json.put("id", messageId)
         json.put("sender", userName)
         json.put("senderId", userId)
         json.put("text", text)
@@ -120,6 +120,17 @@ class ChatClient(
         } catch (e: Exception) {
             listener.onError("فشل إرسال الرسالة")
         }
+    }
+
+    fun sendStatusUpdate(messageId: String, status: Int) {
+        val json = JSONObject()
+        json.put("type", "status_update")
+        json.put("messageId", messageId)
+        json.put("status", status)
+        json.put("senderId", userId)
+        try {
+            if (client.isOpen) client.send(json.toString())
+        } catch (e: Exception) {}
     }
 
     /**

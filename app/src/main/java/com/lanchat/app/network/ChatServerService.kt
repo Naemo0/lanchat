@@ -26,6 +26,7 @@ class ChatServerService : Service() {
             private set
         var isRunning = false
             private set
+        private var nsdHelper: NsdHelper? = null
     }
 
     override fun onCreate() {
@@ -52,6 +53,10 @@ class ChatServerService : Service() {
             try {
                 server?.startWithPing()
                 isRunning = true
+                
+                nsdHelper = NsdHelper(this)
+                nsdHelper?.registerService(port, "$hostName's Chat")
+
                 val ips = server?.getAllLocalIpAddresses() ?: emptyList()
                 val ipText = if (ips.isNotEmpty()) ips.joinToString(" / ") else "127.0.0.1"
                 updateNotification("السيرفر يعمل على $ipText:$port")
@@ -67,6 +72,7 @@ class ChatServerService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         try {
+            nsdHelper?.unregisterService()
             server?.stop()
         } catch (e: Exception) {
         }
