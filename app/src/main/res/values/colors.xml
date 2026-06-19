@@ -10,6 +10,8 @@
     <color name="surface">#FFFFFF</color>
     <color name="error">#B00020</color>
     
+    <color name="divider">#E2E8F0</color>
+    
     <color name="slate_50">#F8FAFC</color>
     <color name="slate_100">#F1F5F9</color>
     <color name="slate_200">#E2E8F0</color>
