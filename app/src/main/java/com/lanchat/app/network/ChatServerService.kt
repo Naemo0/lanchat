@@ -37,11 +37,12 @@ class ChatServerService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val hostName = intent?.getStringExtra("hostName") ?: "المستضيف"
         val port = intent?.getIntExtra("port", ChatServer.DEFAULT_PORT) ?: ChatServer.DEFAULT_PORT
+        val password = intent?.getStringExtra("password")
 
         if (!isRunning) {
             startForeground(NOTIFICATION_ID, buildNotification("جاري تشغيل السيرفر..."))
 
-            server = ChatServer(port, hostName, object : ChatServer.ServerListener {
+            server = ChatServer(port, hostName, password, object : ChatServer.ServerListener {
                 override fun onMessageReceived(message: JSONObject) {}
                 override fun onUserListChanged(users: List<Pair<String, String>>) {
                     updateNotification("متصل: ${users.size} مستخدم")
@@ -49,6 +50,7 @@ class ChatServerService : Service() {
                 override fun onClientConnected(id: String, name: String) {}
                 override fun onClientDisconnected(id: String, name: String) {}
             })
+            server?.setHostId(com.lanchat.app.util.DeviceUtils.getUniqueId(this))
 
             try {
                 server?.startWithPing()

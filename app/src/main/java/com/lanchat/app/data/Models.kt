@@ -4,13 +4,17 @@ package com.lanchat.app.data
  * نموذج موحّد للرسالة المتبادلة بين الأجهزة عبر JSON.
  */
 data class ChatMessage(
-    val type: String,          // "message" | "system" | "userlist" | "hello" | "image"
-    val id: String,            // معرف فريد للرسالة
-    val sender: String,        // اسم المرسل
-    val senderId: String,      // معرف فريد للجهاز المرسل
-    val text: String,          // نص الرسالة
-    val timestamp: Long,       // وقت الإرسال
-    val imageData: String? = null // بيانات الصورة بترميز Base64 (لرسائل الصور فقط)
+    val type: String,          // "message" | "system" | "userlist" | "hello" | "image" | "file" | "voice" | "typing"
+    val id: String,
+    val sender: String,
+    val senderId: String,
+    val text: String,
+    val timestamp: Long,
+    val imageData: String? = null,
+    val fileData: String? = null,
+    val fileName: String? = null,
+    val replyToId: String? = null,
+    val replyToText: String? = null
 ) {
     companion object {
         const val TYPE_MESSAGE = "message"
@@ -33,8 +37,13 @@ data class UiMessage(
     val isMine: Boolean,
     val isSystem: Boolean = false,
     val isImage: Boolean = false,
-    val imageData: String? = null, // Base64 لبيانات الصورة
-    var status: Int = 0 // 0: Sent, 1: Delivered, 2: Seen
+    val imageData: String? = null,
+    val isFile: Boolean = false,
+    val fileName: String? = null,
+    val isVoice: Boolean = false,
+    val replyToId: String? = null,
+    val replyToText: String? = null,
+    var status: Int = 0
 )
 
 /**

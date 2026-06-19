@@ -83,8 +83,7 @@ class MainActivity : AppCompatActivity() {
         })
 
         binding.fabStartServer.setOnClickListener {
-            val name = userNameOrDefault()
-            startServerAndChat(name)
+            showCreateServerDialog()
         }
 
         binding.btnJoinManual.setOnClickListener {
@@ -142,9 +141,10 @@ class MainActivity : AppCompatActivity() {
         return if (name.isNullOrEmpty()) "مستخدم${(1000..9999).random()}" else name
     }
 
-    private fun startServerAndChat(name: String) {
+    private fun startServerAndChat(name: String, password: String? = null) {
         val serviceIntent = Intent(this, ChatServerService::class.java)
         serviceIntent.putExtra("hostName", name)
+        serviceIntent.putExtra("password", password)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             startForegroundService(serviceIntent)
         } else {
@@ -152,17 +152,49 @@ class MainActivity : AppCompatActivity() {
         }
 
         android.os.Handler(mainLooper).postDelayed({
-            joinChat(name, "127.0.0.1", ChatServer.DEFAULT_PORT, "سيرفرك المحلي")
+            joinChat(name, "127.0.0.1", ChatServer.DEFAULT_PORT, "سيرفرك المحلي", password)
         }, 500)
     }
 
-    private fun joinChat(name: String, ip: String, port: Int, serverName: String) {
+    private fun showCreateServerDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_password, null)
+        val etPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPassword)
+        
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("إنشاء سيرفر محمي")
+            .setView(dialogView)
+            .setPositiveButton("إنشاء") { _, _ ->
+                val pass = etPassword.text?.toString()
+                startServerAndChat(userNameOrDefault(), if(pass.isNullOrEmpty()) null else pass)
+            }
+            .setNegativeButton("بدون كلمة سر") { _, _ ->
+                startServerAndChat(userNameOrDefault(), null)
+            }
+            .show()
+    }
+
+    private fun joinChat(name: String, ip: String, port: Int, serverName: String, password: String? = null) {
         val intent = Intent(this, ChatActivity::class.java)
         intent.putExtra("userName", name)
         intent.putExtra("serverIp", ip)
         intent.putExtra("port", port)
         intent.putExtra("serverName", serverName)
+        intent.putExtra("password", password)
         startActivity(intent)
+    }
+
+    private fun showJoinPasswordDialog(ip: String, port: Int, serverName: String) {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_password, null)
+        val etPassword = dialogView.findViewById<com.google.android.material.textfield.TextInputEditText>(R.id.etPassword)
+        
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("دخول السيرفر")
+            .setView(dialogView)
+            .setPositiveButton("دخول") { _, _ ->
+                joinChat(userNameOrDefault(), ip, port, serverName, etPassword.text?.toString())
+            }
+            .setNegativeButton("إلغاء", null)
+            .show()
     }
 
     private fun getAllLocalIps(): List<String> {

@@ -14,7 +14,8 @@ class ChatClient(
     val serverIp: String,
     val port: Int,
     val userName: String,
-    val userId: String = UUID.randomUUID().toString(),
+    val userId: String,
+    private val password: String? = null,
     private val listener: ClientListener
 ) {
 
@@ -45,7 +46,7 @@ class ChatClient(
                 hello.put("id", UUID.randomUUID().toString())
                 hello.put("sender", userName)
                 hello.put("senderId", userId)
-                hello.put("text", "")
+                hello.put("password", password ?: "")
                 hello.put("timestamp", System.currentTimeMillis())
                 send(hello.toString())
                 listener.onConnected()
@@ -107,18 +108,56 @@ class ChatClient(
         }
     }
 
-    fun sendMessage(text: String, messageId: String = UUID.randomUUID().toString()) {
-        val json = JSONObject()
-        json.put("type", "message")
-        json.put("id", messageId)
-        json.put("sender", userName)
-        json.put("senderId", userId)
-        json.put("text", text)
-        json.put("timestamp", System.currentTimeMillis())
+    fun sendMessage(text: String, id: String = UUID.randomUUID().toString(), replyToId: String? = null, replyToText: String? = null) {
+        val json = JSONObject().apply {
+            put("type", "message")
+            put("id", id)
+            put("sender", userName)
+            put("senderId", userId)
+            put("text", text)
+            put("timestamp", System.currentTimeMillis())
+            put("replyToId", replyToId)
+            put("replyToText", replyToText)
+        }
         try {
-            client.send(json.toString())
+            if (client.isOpen) client.send(json.toString())
         } catch (e: Exception) {
             listener.onError("فشل إرسال الرسالة")
+        }
+    }
+
+    fun sendFile(fileName: String, base64Data: String, id: String = UUID.randomUUID().toString()) {
+        val json = JSONObject().apply {
+            put("type", "file")
+            put("id", id)
+            put("sender", userName)
+            put("senderId", userId)
+            put("fileName", fileName)
+            put("fileData", base64Data)
+            put("text", "[ملف: $fileName]")
+            put("timestamp", System.currentTimeMillis())
+        }
+        try {
+            if (client.isOpen) client.send(json.toString())
+        } catch (e: Exception) {
+            listener.onError("فشل إرسال الملف")
+        }
+    }
+
+    fun sendVoice(base64Data: String, id: String = UUID.randomUUID().toString()) {
+        val json = JSONObject().apply {
+            put("type", "voice")
+            put("id", id)
+            put("sender", userName)
+            put("senderId", userId)
+            put("fileData", base64Data)
+            put("text", "[رسالة صوتية]")
+            put("timestamp", System.currentTimeMillis())
+        }
+        try {
+            if (client.isOpen) client.send(json.toString())
+        } catch (e: Exception) {
+            listener.onError("فشل إرسال الرسالة الصوتية")
         }
     }
 
@@ -128,6 +167,18 @@ class ChatClient(
         json.put("messageId", messageId)
         json.put("status", status)
         json.put("senderId", userId)
+        try {
+            if (client.isOpen) client.send(json.toString())
+        } catch (e: Exception) {}
+    }
+
+    fun sendTypingStatus(isTyping: Boolean) {
+        val json = JSONObject().apply {
+            put("type", "typing")
+            put("senderId", userId)
+            put("sender", userName)
+            put("isTyping", isTyping)
+        }
         try {
             if (client.isOpen) client.send(json.toString())
         } catch (e: Exception) {}

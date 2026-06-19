@@ -17,12 +17,23 @@ import java.util.concurrent.ConcurrentHashMap
 class ChatServer(
     port: Int,
     private val hostName: String,
+    private var serverPassword: String? = null,
     private val listener: ServerListener
 ) : NanoWSD(port) {
 
     companion object {
         const val DEFAULT_PORT = 8765
-        private const val SOCKET_READ_TIMEOUT = 60000 // مللي ثانية، مهلة قراءة السوكيت
+        private const val SOCKET_READ_TIMEOUT = 60000
+    }
+
+    private var hostId: String? = null
+
+    fun setPassword(password: String?) {
+        this.serverPassword = password
+    }
+
+    fun setHostId(id: String) {
+        this.hostId = id
     }
 
     interface ServerListener {
@@ -151,12 +162,29 @@ class ChatServer(
                 val json = JSONObject(message.textPayload)
                 when (json.optString("type")) {
                     "hello" -> {
+                        val password = json.optString("password")
+                        if (serverPassword != null && serverPassword != password) {
+                            val error = JSONObject().apply {
+                                put("type", "error")
+                                put("message", "كلمة السر خاطئة")
+                            }
+                            send(error.toString())
+                            close(fi.iki.elonen.NanoWSD.WebSocketFrame.CloseCode.NormalClosure, "Wrong password", true)
+                            return
+                        }
                         clientId = json.optString("senderId", clientId)
                         clientName = json.optString("sender", "مستخدم")
                         clients[clientId] = ClientInfo(clientName, this)
                         listener.onClientConnected(clientId, clientName)
                         broadcastUserList()
                         broadcastSystem("$clientName انضم إلى المحادثة")
+                    }
+                    "kick" -> {
+                        val targetId = json.optString("targetId")
+                        val requesterId = json.optString("senderId")
+                        if (requesterId == hostId) {
+                            clients[targetId]?.socket?.close(fi.iki.elonen.NanoWSD.WebSocketFrame.CloseCode.NormalClosure, "Kicked by host", true)
+                        }
                     }
                     "message", "image", "status_update" -> {
                         listener.onMessageReceived(json)

@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 @Entity(tableName = "messages")
 data class MessageEntity(
     @PrimaryKey val id: String,
-    val serverId: String, // معرف السيرفر/المحادثة (مثلاً IP السيرفر)
+    val serverId: String,
     val sender: String,
     val senderId: String,
     val text: String,
@@ -15,7 +15,12 @@ data class MessageEntity(
     val isMine: Boolean,
     val isImage: Boolean = false,
     val imageData: String? = null,
-    val status: Int = STATUS_SENT // 0: Sent, 1: Delivered, 2: Seen
+    val isFile: Boolean = false,
+    val fileName: String? = null,
+    val isVoice: Boolean = false,
+    val replyToId: String? = null,
+    val replyToText: String? = null,
+    val status: Int = STATUS_SENT
 ) {
     companion object {
         const val STATUS_SENT = 0
