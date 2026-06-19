@@ -68,7 +68,7 @@
                 android:scaleType="centerCrop"
                 android:layout_marginBottom="4dp"
                 android:visibility="gone"
-                app:shapeAppearanceOverlay="@style/CircleImage" />
+                app:shapeAppearanceOverlay="@style/RoundedImage" />
 
             <!-- Voice Message -->
             <LinearLayout

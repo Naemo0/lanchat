@@ -12,14 +12,14 @@
         android:scaleType="fitCenter"
         android:contentDescription="Full Image" />
 
-    <IconButton
+    <ImageButton
         android:id="@+id/btnClose"
         android:layout_width="48dp"
         android:layout_height="48dp"
         android:layout_margin="16dp"
         android:layout_gravity="top|start"
         android:src="@android:drawable/ic_menu_revert"
-        app:tint="@color/white"
+        android:tint="@color/white"
         android:background="?attr/selectableItemBackgroundBorderless" />
 
 </FrameLayout>

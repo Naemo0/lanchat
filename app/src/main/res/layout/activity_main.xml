@@ -77,12 +77,12 @@
                             android:textColor="@color/text_secondary" />
                     </LinearLayout>
 
-                    <IconButton
+                    <ImageButton
                         android:id="@+id/btnEditProfile"
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:src="@android:drawable/ic_menu_edit"
-                        app:tint="@color/primary"
+                        android:tint="@color/primary"
                         android:background="?attr/selectableItemBackgroundBorderless" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -147,7 +147,7 @@
                         android:layout_width="120dp"
                         android:layout_height="120dp"
                         android:src="@android:drawable/ic_menu_send"
-                        app:tint="@color/slate_200" />
+                        android:tint="@color/slate_200" />
                         
                     <TextView
                         android:layout_width="wrap_content"
@@ -174,7 +174,7 @@
                     app:cardElevation="0dp"
                     app:strokeWidth="1dp"
                     app:strokeColor="@color/slate_200"
-                    android:layout_marginBottom="16dp">
+                    android:layout_bottom="16dp">
                     
                     <LinearLayout
                         android:layout_width="match_parent"
