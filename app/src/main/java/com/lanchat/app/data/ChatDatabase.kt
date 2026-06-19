@@ -62,7 +62,7 @@ interface ChatDao {
     suspend fun deleteMessagesForServer(serverId: String)
 }
 
-@Database(entities = [MessageEntity::class, ConversationEntity::class], version = 1)
+@Database(entities = [MessageEntity::class, ConversationEntity::class], version = 1, exportSchema = false)
 abstract class ChatDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 
