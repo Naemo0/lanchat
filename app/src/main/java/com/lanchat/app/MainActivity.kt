@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.nsd.NsdServiceInfo
 import android.os.Bundle
 import android.view.View
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -40,6 +39,7 @@ class MainActivity : AppCompatActivity() {
         startDiscovery()
         
         binding.tvHardwareId.text = "ID: ${DeviceUtils.getUniqueId(this)}"
+        binding.tvUserDisplayName.text = DeviceUtils.getUserName(this)
     }
 
     private fun setupUI() {
@@ -47,12 +47,12 @@ class MainActivity : AppCompatActivity() {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 when (tab?.position) {
                     0 -> {
-                        binding.recyclerChats.visibility = View.VISIBLE
-                        binding.layoutDiscover.visibility = View.GONE
+                        binding.layoutConversations.visibility = View.VISIBLE
+                        binding.layoutDiscovery.visibility = View.GONE
                     }
                     1 -> {
-                        binding.recyclerChats.visibility = View.GONE
-                        binding.layoutDiscover.visibility = View.VISIBLE
+                        binding.layoutConversations.visibility = View.GONE
+                        binding.layoutDiscovery.visibility = View.VISIBLE
                     }
                 }
             }
@@ -60,9 +60,19 @@ class MainActivity : AppCompatActivity() {
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
 
-        binding.btnHost.setOnClickListener { showHostDialog() }
-        binding.btnManualConnect.setOnClickListener { showManualConnectDialog() }
-        binding.btnProfile.setOnClickListener { showProfileDialog() }
+        binding.fabStartServer.setOnClickListener { showHostDialog() }
+        binding.btnJoinManual.setOnClickListener {
+            val ip = binding.etServerIp.text.toString()
+            if (ip.isNotEmpty()) {
+                val intent = Intent(this, ChatActivity::class.java).apply {
+                    putExtra("serverIp", ip)
+                    putExtra("serverName", "Remote Room")
+                    putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
+                }
+                startActivity(intent)
+            }
+        }
+        binding.btnEditProfile.setOnClickListener { showProfileDialog() }
     }
 
     private fun setupAdapters() {
@@ -74,21 +84,21 @@ class MainActivity : AppCompatActivity() {
             }
             startActivity(intent)
         }
-        binding.recyclerChats.layoutManager = LinearLayoutManager(this)
-        binding.recyclerChats.adapter = convAdapter
+        binding.rvConversations.layoutManager = LinearLayoutManager(this)
+        binding.rvConversations.adapter = convAdapter
 
         serverAdapter = ServerAdapter { serviceInfo ->
             showJoinDialog(serviceInfo)
         }
-        binding.recyclerDiscovered.layoutManager = LinearLayoutManager(this)
-        binding.recyclerDiscovered.adapter = serverAdapter
+        binding.rvDiscoveredServers.layoutManager = LinearLayoutManager(this)
+        binding.rvDiscoveredServers.adapter = serverAdapter
     }
 
     private fun observeConversations() {
         lifecycleScope.launch {
             db.chatDao().getAllConversations().collectLatest { list ->
                 convAdapter.submitList(list)
-                binding.tvEmptyChats.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+                binding.layoutEmptyChats.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
             }
         }
     }
@@ -97,10 +107,18 @@ class MainActivity : AppCompatActivity() {
         nsdHelper = NsdHelper(this)
         nsdHelper?.discoverServices(object : NsdHelper.DiscoveryListener {
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                runOnUiThread { serverAdapter.addServer(serviceInfo) }
+                runOnUiThread { 
+                    serverAdapter.addServer(serviceInfo)
+                    binding.layoutSearching.visibility = View.GONE
+                }
             }
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {
-                runOnUiThread { serverAdapter.removeServer(serviceInfo) }
+                runOnUiThread { 
+                    serverAdapter.removeServer(serviceInfo)
+                    if (serverAdapter.itemCount == 0) {
+                        binding.layoutSearching.visibility = View.VISIBLE
+                    }
+                }
             }
         })
     }
@@ -158,30 +176,6 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun showManualConnectDialog() {
-        val view = layoutInflater.inflate(R.layout.dialog_manual_connect, null)
-        val etIp = view.findViewById<TextInputEditText>(R.id.etIp)
-        val etPass = view.findViewById<TextInputEditText>(R.id.etPassword)
-
-        AlertDialog.Builder(this)
-            .setTitle("Manual Connect")
-            .setView(view)
-            .setPositiveButton("Connect") { _, _ ->
-                val ip = etIp.text.toString()
-                if (ip.isNotEmpty()) {
-                    val intent = Intent(this, ChatActivity::class.java).apply {
-                        putExtra("serverIp", ip)
-                        putExtra("serverName", "Remote Room")
-                        putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
-                        putExtra("password", etPass.text.toString().ifEmpty { null })
-                    }
-                    startActivity(intent)
-                }
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-
     private fun showProfileDialog() {
         val view = layoutInflater.inflate(R.layout.dialog_profile, null)
         val etName = view.findViewById<TextInputEditText>(R.id.etUserName)
@@ -194,6 +188,7 @@ class MainActivity : AppCompatActivity() {
                 val newName = etName.text.toString()
                 if (newName.isNotEmpty()) {
                     DeviceUtils.setUserName(this, newName)
+                    binding.tvUserDisplayName.text = newName
                 }
             }
             .setNegativeButton("Cancel", null)

@@ -79,40 +79,40 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         adapter = MessageAdapter(mutableListOf()) { msg ->
             showReplyLayout(msg)
         }
-        binding.recyclerMessages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
-        binding.recyclerMessages.adapter = adapter
+        binding.rvMessages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
+        binding.rvMessages.adapter = adapter
     }
 
     private fun showReplyLayout(msg: UiMessage) {
         replyMessage = msg
-        binding.layoutReply.visibility = View.VISIBLE
-        binding.tvReplyName.text = msg.sender
-        binding.tvReplyText.text = msg.text
+        binding.layoutReplyPreview.visibility = View.VISIBLE
+        binding.tvReplySenderName.text = msg.sender
+        binding.tvReplyMessageText.text = msg.text
     }
 
     private fun hideReplyLayout() {
         replyMessage = null
-        binding.layoutReply.visibility = View.GONE
+        binding.layoutReplyPreview.visibility = View.GONE
     }
 
     private fun setupListeners() {
-        binding.btnSend.setOnClickListener { sendCurrentMessage() }
-        binding.btnAttach.setOnClickListener { pickFileLauncher.launch("*/*") }
+        binding.btnSendMessage.setOnClickListener { sendCurrentMessage() }
+        binding.btnAttachFile.setOnClickListener { pickFileLauncher.launch("*/*") }
         binding.btnBack.setOnClickListener { finish() }
         binding.btnCancelReply.setOnClickListener { hideReplyLayout() }
         
         var isRecording = false
         val audioFile = java.io.File(cacheDir, "voice_msg.mp4")
-        binding.btnVoice.setOnClickListener {
+        binding.btnVoiceMessage.setOnClickListener {
             try {
                 if (!isRecording) {
                     com.lanchat.app.util.AudioUtils.startRecording(this, audioFile)
-                    binding.btnVoice.setColorFilter(getColor(R.color.secondary))
+                    binding.btnVoiceMessage.setColorFilter(getColor(R.color.secondary))
                     Toast.makeText(this, "Recording...", Toast.LENGTH_SHORT).show()
                     isRecording = true
                 } else {
                     com.lanchat.app.util.AudioUtils.stopRecording()
-                    binding.btnVoice.clearColorFilter()
+                    binding.btnVoiceMessage.clearColorFilter()
                     val base64 = com.lanchat.app.util.AudioUtils.encodeAudioFile(audioFile)
                     if (base64 != null) {
                         val messageId = UUID.randomUUID().toString()
@@ -127,7 +127,7 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
             }
         }
 
-        binding.etMessage.addTextChangedListener(object : android.text.TextWatcher {
+        binding.etMessageInput.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 client?.sendTypingStatus(!s.isNullOrEmpty())
@@ -160,20 +160,20 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
                     )
                 }
                 adapter.setMessages(uiMessages)
-                binding.recyclerMessages.scrollToPosition(adapter.itemCount - 1)
+                binding.rvMessages.scrollToPosition(adapter.itemCount - 1)
             }
         }
     }
 
     private fun connectToServer() {
-        binding.tvStatus.text = "Connecting..."
+        binding.tvConnectionStatus.text = "Connecting..."
         val pass = intent.getStringExtra("password")
         client = ChatClient(serverIp, port, userName, myUserId, this, pass)
         client?.connect()
     }
 
     private fun sendCurrentMessage() {
-        val text = binding.etMessage.text?.toString()?.trim()
+        val text = binding.etMessageInput.text?.toString()?.trim()
         if (text.isNullOrEmpty()) return
         
         val messageId = UUID.randomUUID().toString()
@@ -197,7 +197,7 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
             replyToSender = replyMessage?.sender
         )
         
-        binding.etMessage.setText("")
+        binding.etMessageInput.setText("")
         hideReplyLayout()
     }
 
@@ -285,15 +285,15 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
     override fun onConnected() {
         runOnUiThread {
-            binding.tvStatus.text = "Connected"
-            binding.statusDot.background.setTint(getColor(R.color.online_green))
+            binding.tvConnectionStatus.text = "Connected"
+            binding.statusDotIndicator.background.setTint(getColor(R.color.online_green))
         }
     }
 
     override fun onDisconnected() {
         runOnUiThread {
-            binding.tvStatus.text = "Disconnected"
-            binding.statusDot.background.setTint(getColor(R.color.slate_500))
+            binding.tvConnectionStatus.text = "Disconnected"
+            binding.statusDotIndicator.background.setTint(getColor(R.color.slate_500))
         }
     }
 
@@ -347,7 +347,7 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
                 ChatMessage.TYPE_TYPING -> {
                     if (!isMine) {
                         val isTyping = json.optBoolean("isTyping")
-                        binding.tvTyping.visibility = if (isTyping) View.VISIBLE else View.GONE
+                        binding.tvTypingIndicator.visibility = if (isTyping) View.VISIBLE else View.GONE
                     }
                 }
                 ChatMessage.TYPE_STATUS_UPDATE -> {
