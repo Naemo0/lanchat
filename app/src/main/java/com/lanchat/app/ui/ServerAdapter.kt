@@ -14,7 +14,7 @@ class ServerAdapter(private val onServerClick: (NsdServiceInfo) -> Unit) :
     private val servers = mutableListOf<NsdServiceInfo>()
 
     fun addServer(serviceInfo: NsdServiceInfo) {
-        if (servers.none { it.host?.hostAddress == serviceInfo.host?.hostAddress }) {
+        if (servers.none { it.serviceName == serviceInfo.serviceName }) {
             servers.add(serviceInfo)
             notifyItemInserted(servers.size - 1)
         }

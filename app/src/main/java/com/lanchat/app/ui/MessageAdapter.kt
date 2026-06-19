@@ -7,7 +7,6 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import coil.load
 import com.lanchat.app.ImageViewerActivity
 import com.lanchat.app.R
 import com.lanchat.app.data.ChatMessage
@@ -69,10 +68,6 @@ class MessageAdapter(
                 holder.name.text = msg.sender
                 bindCommon(holder.text, holder.time, holder.replyLayout, holder.replyName, holder.replyText, msg, timeStr)
                 bindMedia(holder.image, holder.voiceLayout, msg)
-                // Load avatar if exists
-                if (msg.avatar != null) {
-                    // Coil.load(msg.avatar)
-                }
             }
             is SystemViewHolder -> {
                 holder.text.text = msg.text
@@ -117,9 +112,6 @@ class MessageAdapter(
                         AudioUtils.playAudio(data, it.context)
                     }
                 }
-            }
-            ChatMessage.TYPE_FILE -> {
-                // Show file icon and name in text
             }
         }
     }

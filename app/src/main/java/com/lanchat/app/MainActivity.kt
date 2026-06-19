@@ -78,7 +78,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupAdapters() {
         convAdapter = ConversationAdapter { conv ->
             val intent = Intent(this, ChatActivity::class.java).apply {
-                putExtra("serverIp", conv.id)
+                putExtra("serverIp", conv.serverId)
                 putExtra("serverName", conv.name)
                 putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
             }
