@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.nsd.NsdServiceInfo
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
