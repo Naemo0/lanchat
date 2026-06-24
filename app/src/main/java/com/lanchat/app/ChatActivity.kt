@@ -96,9 +96,9 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
             .setMessage("Do you want to download $name?")
             .setPositiveButton("Download") { _, _ ->
                 try {
-                    val path = com.lanchat.app.util.FileUtils.saveBase64ToFile(this, data, name)
-                    if (path != null) {
-                        Toast.makeText(this, "File saved to: $path", Toast.LENGTH_LONG).show()
+                    val file = com.lanchat.app.util.FileUtils.saveFileFromBase64(this, data, name)
+                    if (file != null) {
+                        Toast.makeText(this, "File saved to: ${file.absolutePath}", Toast.LENGTH_LONG).show()
                     } else {
                         Toast.makeText(this, "Failed to save file", Toast.LENGTH_SHORT).show()
                     }
