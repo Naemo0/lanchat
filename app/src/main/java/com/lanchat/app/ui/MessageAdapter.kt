@@ -109,9 +109,13 @@ class MessageAdapter(
                 voiceLayout?.visibility = View.VISIBLE
                 voiceLayout?.setOnClickListener {
                     msg.voiceData?.let { data ->
-                        AudioUtils.playAudio(data, it.context)
+                        AudioUtils.playAudio(data, it.context, msg.id)
                     }
                 }
+            }
+            ChatMessage.TYPE_FILE -> {
+                // For files, we can use the text view to show a download link or handle click
+                // In a real app, we'd have a specific file layout, but here we'll use the text view's click
             }
         }
     }

@@ -77,10 +77,37 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
 
     private fun setupRecycler() {
         adapter = MessageAdapter(mutableListOf()) { msg ->
-            showReplyLayout(msg)
+            if (msg.type == ChatMessage.TYPE_FILE) {
+                handleFileDownload(msg)
+            } else {
+                showReplyLayout(msg)
+            }
         }
         binding.recyclerMessages.layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         binding.recyclerMessages.adapter = adapter
+    }
+
+    private fun handleFileDownload(msg: UiMessage) {
+        val data = msg.fileData ?: return
+        val name = msg.fileName ?: "downloaded_file"
+        
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Download File")
+            .setMessage("Do you want to download $name?")
+            .setPositiveButton("Download") { _, _ ->
+                try {
+                    val path = com.lanchat.app.util.FileUtils.saveBase64ToFile(this, data, name)
+                    if (path != null) {
+                        Toast.makeText(this, "File saved to: $path", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(this, "Failed to save file", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     private fun showReplyLayout(msg: UiMessage) {
@@ -100,10 +127,27 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         binding.btnAttach.setOnClickListener { pickFileLauncher.launch("*/*") }
         binding.btnBack.setOnClickListener { finish() }
         binding.btnCancelReply.setOnClickListener { hideReplyLayout() }
+        binding.btnInfo.setOnClickListener { showRoomInfo() }
         
         var isRecording = false
         val audioFile = java.io.File(cacheDir, "voice_msg.mp4")
+        
+        val recordPermissionLauncher = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                // Start recording logic moved here if needed or just handled in click
+            } else {
+                Toast.makeText(this, "Microphone permission required", Toast.LENGTH_SHORT).show()
+            }
+        }
+
         binding.btnVoice.setOnClickListener {
+            if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                recordPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
+                return@setOnClickListener
+            }
+
             try {
                 if (!isRecording) {
                     com.lanchat.app.util.AudioUtils.startRecording(this, audioFile)
@@ -165,6 +209,20 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         }
     }
 
+    private fun showRoomInfo() {
+        val info = """
+            Room Name: $serverName
+            IP Address: $serverIp
+            Port: $port
+        """.trimIndent()
+        
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Room Info")
+            .setMessage(info)
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
     private fun connectToServer() {
         binding.tvStatus.text = "Connecting..."
         val pass = intent.getStringExtra("password")
@@ -217,7 +275,7 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
                 if (base64 != null) {
                     val messageId = UUID.randomUUID().toString()
                     saveMessageLocally(messageId, "Sent a photo", System.currentTimeMillis(), ChatMessage.TYPE_IMAGE, base64)
-                    client?.sendImage(base64)
+                    client?.sendImage(base64, messageId)
                 }
             } catch (e: Exception) {
                 Toast.makeText(this@ChatActivity, "Image Error", Toast.LENGTH_SHORT).show()
@@ -291,7 +349,16 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
             )
             db.chatDao().insertMessage(entity)
             
-            val conv = ConversationEntity(serverIp, serverName, text, ts, 0)
+            val pass = intent.getStringExtra("password")
+            val conv = ConversationEntity(
+                id = serverIp,
+                name = serverName,
+                lastMessage = text,
+                lastTimestamp = ts,
+                unreadCount = 0,
+                port = port,
+                password = pass
+            )
             db.chatDao().insertOrUpdateConversation(conv)
         }
     }
@@ -344,7 +411,10 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
                         )
                         
                         if (!isInForeground) {
-                            MessageNotifier.show(this, sender, text)
+                            MessageNotifier.show(this, sender, text, serverIp, serverName)
+                            lifecycleScope.launch {
+                                db.chatDao().incrementUnreadCount(serverIp)
+                            }
                         }
                         
                         client?.sendStatusUpdate(msgId, MessageStatus.DELIVERED)

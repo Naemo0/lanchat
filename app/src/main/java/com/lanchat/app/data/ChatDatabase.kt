@@ -31,9 +31,11 @@ data class ConversationEntity(
     val name: String,
     val lastMessage: String,
     val lastTimestamp: Long,
-    val unreadCount: Int = 0,
+    var unreadCount: Int = 0,
     val isServer: Boolean = false,
-    val avatar: String? = null
+    val avatar: String? = null,
+    val port: Int = 8888,
+    val password: String? = null
 )
 
 @Dao
@@ -64,6 +66,9 @@ interface ChatDao {
 
     @Query("UPDATE conversations SET unreadCount = 0 WHERE id = :serverId")
     suspend fun markAsRead(serverId: String)
+
+    @Query("UPDATE conversations SET unreadCount = unreadCount + 1 WHERE id = :serverId")
+    suspend fun incrementUnreadCount(serverId: String)
 }
 
 @Database(entities = [MessageEntity::class, ConversationEntity::class], version = 2, exportSchema = false)

@@ -167,10 +167,10 @@ class ChatClient(
         sendSafely(json)
     }
 
-    fun sendImage(base64Image: String, caption: String = "") {
+    fun sendImage(base64Image: String, id: String = UUID.randomUUID().toString(), caption: String = "") {
         val json = JSONObject().apply {
             put("type", ChatMessage.TYPE_IMAGE)
-            put("id", UUID.randomUUID().toString())
+            put("id", id)
             put("sender", userName)
             put("senderId", userId)
             put("text", caption)

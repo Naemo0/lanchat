@@ -40,6 +40,13 @@ class MainActivity : AppCompatActivity() {
         
         binding.tvHardwareId.text = "ID: ${DeviceUtils.getUniqueId(this)}"
         binding.tvUserDisplayName.text = DeviceUtils.getUserName(this)
+
+        binding.toolbar.setOnMenuItemClickListener {
+            if (it.itemId == R.id.action_settings) {
+                showProfileDialog()
+                true
+            } else false
+        }
     }
 
     private fun setupUI() {
@@ -80,6 +87,8 @@ class MainActivity : AppCompatActivity() {
             val intent = Intent(this, ChatActivity::class.java).apply {
                 putExtra("serverIp", conv.id)
                 putExtra("serverName", conv.name)
+                putExtra("port", conv.port)
+                putExtra("password", conv.password)
                 putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
             }
             startActivity(intent)
@@ -146,6 +155,7 @@ class MainActivity : AppCompatActivity() {
                 val chatIntent = Intent(this, ChatActivity::class.java).apply {
                     putExtra("serverIp", "127.0.0.1")
                     putExtra("serverName", name)
+                    putExtra("port", 8888)
                     putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
                     putExtra("password", pass.ifEmpty { null })
                 }

@@ -36,16 +36,18 @@ object MessageNotifier {
         }
     }
 
-    fun show(context: Context, sender: String, text: String) {
+    fun show(context: Context, sender: String, text: String, serverIp: String? = null, serverName: String? = null) {
         ensureChannel(context)
 
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
 
         val intent = Intent(context, ChatActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            if (serverIp != null) putExtra("serverIp", serverIp)
+            if (serverName != null) putExtra("serverName", serverName)
         }
         val pendingIntent = PendingIntent.getActivity(
-            context, 0, intent,
+            context, System.currentTimeMillis().toInt(), intent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
