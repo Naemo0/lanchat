@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">لان تشات برو</string>
+    <string name="start_server">استضافة غرفة</string>
+    <string name="join_server">انضمام لغرفة</string>
+    <string name="server_running">السيرفر يعمل في</string>
+    <string name="enter_name">اسم العرض</string>
+    <string name="enter_ip">عنوان IP للسيرفر</string>
+    <string name="connect">اتصال</string>
+    <string name="type_message">اكتب رسالة...</string>
+    <string name="send">إرسال</string>
+    <string name="connected_devices">المستخدمون المتصلون</string>
+    <string name="not_connected">غير متصل</string>
+    <string name="connecting">جاري الاتصال...</string>
+    <string name="connected">متصل</string>
+    <string name="stop_server">إيقاف السيرفر</string>
+    <string name="disconnect">قطع الاتصال</string>
+    <string name="image_message">صورة</string>
+    <string name="sending_image">جاري إرسال الصورة...</string>
+    <string name="image_too_large">حجم الصورة كبير جداً</string>
+    
+    <string name="tab_chats">المحادثات</string>
+    <string name="tab_discover">اكتشاف</string>
+    <string name="empty_chats">لا توجد محادثات بعد</string>
+    <string name="scanning">جاري البحث عن سيرفرات...</string>
+    <string name="manual_connect">اتصال يدوي</string>
+    <string name="host_room">إنشاء غرفة</string>
+    <string name="hardware_id">معرف الجهاز: %1$s</string>
+    <string name="edit_profile">تعديل الملف الشخصي</string>
+    <string name="save">حفظ</string>
+    <string name="cancel">إلغاء</string>
+    <string name="set_password">تعيين كلمة مرور للغرفة (اختياري)</string>
+    <string name="enter_password">أدخل كلمة مرور الغرفة</string>
+    <string name="kick_user">طرد المستخدم</string>
+    <string name="user_typing">%1$s يكتب الآن...</string>
+</resources>

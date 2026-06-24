@@ -8,7 +8,7 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/surface"
+        android:background="@color/primary"
         app:elevation="0dp">
 
         <com.google.android.material.appbar.MaterialToolbar
@@ -17,7 +17,7 @@
             android:layout_height="?attr/actionBarSize"
             app:title="LanChat"
             app:titleCentered="true"
-            app:titleTextColor="@color/primary"
+            app:titleTextColor="@color/white"
             app:menu="@menu/main_menu" />
 
         <LinearLayout
@@ -92,12 +92,14 @@
             android:id="@+id/tabLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@color/primary"
             app:tabIndicatorFullWidth="false"
             app:tabIndicatorHeight="3dp"
+            app:tabIndicatorColor="@color/white"
             app:tabIndicatorGravity="bottom"
-            app:tabSelectedTextColor="@color/primary"
-            app:tabTextColor="@color/text_secondary"
-            app:tabRippleColor="@color/slate_100">
+            app:tabSelectedTextColor="@color/white"
+            app:tabTextColor="#B3FFFFFF"
+            app:tabRippleColor="#20FFFFFF">
 
             <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"

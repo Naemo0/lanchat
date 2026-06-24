@@ -38,8 +38,17 @@ class MainActivity : AppCompatActivity() {
         observeConversations()
         startDiscovery()
         
-        binding.tvHardwareId.text = "ID: ${DeviceUtils.getUniqueId(this)}"
+        binding.tvHardwareId.text = "Device ID: ${DeviceUtils.getUniqueId(this)}"
         binding.tvUserDisplayName.text = DeviceUtils.getUserName(this)
+        
+        // Update Profile Avatar
+        val color = DeviceUtils.getUserColor(this)
+        binding.ivUserProfile.setBackgroundColor(color)
+        binding.ivUserProfile.setImageResource(android.R.drawable.ic_menu_myplaces)
+        binding.ivUserProfile.imageTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.white))
+        
+        // Update Status Bar Color
+        window.statusBarColor = getColor(R.color.primary)
 
         binding.toolbar.setOnMenuItemClickListener {
             if (it.itemId == R.id.action_settings) {
@@ -84,14 +93,18 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupAdapters() {
         convAdapter = ConversationAdapter { conv ->
-            val intent = Intent(this, ChatActivity::class.java).apply {
-                putExtra("serverIp", conv.id)
-                putExtra("serverName", conv.name)
-                putExtra("port", conv.port)
-                putExtra("password", conv.password)
-                putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
+            if (conv.id.isNotEmpty()) {
+                val intent = Intent(this, ChatActivity::class.java).apply {
+                    putExtra("serverIp", conv.id)
+                    putExtra("serverName", conv.name)
+                    putExtra("port", if (conv.port > 0) conv.port else 8888)
+                    putExtra("password", conv.password)
+                    putExtra("userName", DeviceUtils.getUserName(this@MainActivity))
+                }
+                startActivity(intent)
+            } else {
+                Toast.makeText(this, "Invalid server information", Toast.LENGTH_SHORT).show()
             }
-            startActivity(intent)
         }
         binding.rvConversations.layoutManager = LinearLayoutManager(this)
         binding.rvConversations.adapter = convAdapter
@@ -199,6 +212,10 @@ class MainActivity : AppCompatActivity() {
                 if (newName.isNotEmpty()) {
                     DeviceUtils.setUserName(this, newName)
                     binding.tvUserDisplayName.text = newName
+                    
+                    // Update Avatar
+                    val color = DeviceUtils.getUserColor(this)
+                    binding.ivUserProfile.setBackgroundColor(color)
                 }
             }
             .setNegativeButton("Cancel", null)

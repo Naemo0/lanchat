@@ -52,12 +52,20 @@ object DeviceUtils {
         return "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"
     }
 
+    fun getUserColor(context: Context): Int {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (!prefs.contains("user_color")) {
+            val color = getRandomColor()
+            prefs.edit().putInt("user_color", color).apply()
+        }
+        return prefs.getInt("user_color", 0xFF6366F1.toInt())
+    }
+
     fun getRandomColor(): Int {
         val colors = listOf(
-            0xFFF44336.toInt(), 0xFFE91E63.toInt(), 0xFF9C27B0.toInt(), 
-            0xFF673AB7.toInt(), 0xFF3F51B5.toInt(), 0xFF2196F3.toInt(),
-            0xFF03A9F4.toInt(), 0xFF00BCD4.toInt(), 0xFF009688.toInt(),
-            0xFF4CAF50.toInt(), 0xFF8BC34A.toInt(), 0xFFCDDC39.toInt()
+            0xFF6366F1.toInt(), 0xFF10B981.toInt(), 0xFFF59E0B.toInt(), 
+            0xFFEF4444.toInt(), 0xFF8B5CF6.toInt(), 0xFFEC4899.toInt(),
+            0xFF06B6D4.toInt(), 0xFF84CC16.toInt()
         )
         return colors.random()
     }

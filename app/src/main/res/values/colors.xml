@@ -1,34 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Professional Palette: Deep Navy, Cyan, and Slate -->
-    <color name="primary">#1A237E</color> <!-- Deep Navy -->
-    <color name="primary_variant">#000051</color>
-    <color name="secondary">#00BCD4</color> <!-- Cyan -->
-    <color name="secondary_variant">#008BA3</color>
+    <!-- Modern & Vibrant Palette -->
+    <color name="primary">#6366F1</color> <!-- Indigo 500 -->
+    <color name="primary_variant">#4F46E5</color> <!-- Indigo 600 -->
+    <color name="secondary">#10B981</color> <!-- Emerald 500 -->
+    <color name="secondary_variant">#059669</color> <!-- Emerald 600 -->
     
-    <color name="background">#F8F9FA</color>
+    <color name="background">#F1F5F9</color> <!-- Slate 100 -->
     <color name="surface">#FFFFFF</color>
-    <color name="error">#B00020</color>
+    <color name="error">#EF4444</color> <!-- Red 500 -->
     
     <color name="divider">#E2E8F0</color>
     
     <color name="slate_50">#F8FAFC</color>
     <color name="slate_100">#F1F5F9</color>
     <color name="slate_200">#E2E8F0</color>
+    <color name="slate_300">#CBD5E1</color>
+    <color name="slate_400">#94A3B8</color>
     <color name="slate_500">#64748B</color>
+    <color name="slate_600">#475569</color>
     <color name="slate_700">#334155</color>
+    <color name="slate_800">#1E293B</color>
     <color name="slate_900">#0F172A</color>
 
-    <color name="bubble_me">#1A237E</color>
-    <color name="bubble_other">#E2E8F0</color>
+    <color name="bubble_me">#6366F1</color>
+    <color name="bubble_other">#FFFFFF</color>
     
-    <color name="text_primary">#0F172A</color>
+    <color name="text_primary">#1E293B</color>
     <color name="text_secondary">#64748B</color>
     <color name="text_on_primary">#FFFFFF</color>
     <color name="text_on_secondary">#FFFFFF</color>
     
     <color name="online_green">#10B981</color>
     <color name="typing_blue">#3B82F6</color>
+    <color name="accent_orange">#F59E0B</color>
+    <color name="accent_purple">#8B5CF6</color>
     
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>

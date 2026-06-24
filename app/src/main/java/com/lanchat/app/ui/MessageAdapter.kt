@@ -66,6 +66,17 @@ class MessageAdapter(
             }
             is OtherViewHolder -> {
                 holder.name.text = msg.sender
+                
+                // Update Avatar
+                val avatarColor = if (msg.senderId != null) {
+                    val colors = intArrayOf(0xFF6366F1.toInt(), 0xFF10B981.toInt(), 0xFFF59E0B.toInt(), 0xFFEF4444.toInt(), 0xFF8B5CF6.toInt())
+                    colors[Math.abs(msg.senderId.hashCode()) % colors.size]
+                } else 0xFF6366F1.toInt()
+                
+                holder.avatar?.setBackgroundColor(avatarColor)
+                holder.avatar?.setImageResource(android.R.drawable.ic_menu_myplaces)
+                holder.avatar?.imageTintList = android.content.res.ColorStateList.valueOf(holder.itemView.context.getColor(R.color.white))
+
                 bindCommon(holder.text, holder.time, holder.replyLayout, holder.replyName, holder.replyText, msg, timeStr)
                 bindMedia(holder.image, holder.voiceLayout, msg)
             }
@@ -107,9 +118,13 @@ class MessageAdapter(
             }
             ChatMessage.TYPE_VOICE -> {
                 voiceLayout?.visibility = View.VISIBLE
+                val btnPlay = voiceLayout?.findViewById<ImageView>(R.id.btnPlayVoice)
                 voiceLayout?.setOnClickListener {
                     msg.voiceData?.let { data ->
-                        AudioUtils.playAudio(data, it.context, msg.id)
+                        btnPlay?.setImageResource(android.R.drawable.ic_media_pause)
+                        AudioUtils.playAudio(data, it.context, msg.id) {
+                            btnPlay?.setImageResource(android.R.drawable.ic_media_play)
+                        }
                     }
                 }
             }

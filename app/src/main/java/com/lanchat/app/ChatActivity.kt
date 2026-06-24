@@ -142,33 +142,46 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
             }
         }
 
-        binding.btnVoice.setOnClickListener {
+        binding.btnVoice.setOnTouchListener { v, event ->
             if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 recordPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
-                return@setOnClickListener
+                return@setOnTouchListener false
             }
 
-            try {
-                if (!isRecording) {
-                    com.lanchat.app.util.AudioUtils.startRecording(this, audioFile)
-                    binding.btnVoice.setColorFilter(getColor(R.color.secondary))
-                    Toast.makeText(this, "Recording...", Toast.LENGTH_SHORT).show()
-                    isRecording = true
-                } else {
-                    com.lanchat.app.util.AudioUtils.stopRecording()
-                    binding.btnVoice.clearColorFilter()
-                    val base64 = com.lanchat.app.util.AudioUtils.encodeAudioFile(audioFile)
-                    if (base64 != null) {
-                        val messageId = UUID.randomUUID().toString()
-                        saveMessageLocally(messageId, "Voice message", System.currentTimeMillis(), ChatMessage.TYPE_VOICE, null, true, "Me", myUserId, base64)
-                        client?.sendVoice(base64, messageId)
+            when (event.action) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    try {
+                        com.lanchat.app.util.AudioUtils.startRecording(this, audioFile)
+                        binding.btnVoice.setBackgroundResource(R.drawable.bg_status_dot)
+                        binding.btnVoice.backgroundTintList = android.content.res.ColorStateList.valueOf(getColor(R.color.error))
+                        binding.btnVoice.setColorFilter(getColor(R.color.white))
+                        Toast.makeText(this, "Recording...", Toast.LENGTH_SHORT).show()
+                        isRecording = true
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Audio Error: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
-                    isRecording = false
                 }
-            } catch (e: Exception) {
-                Toast.makeText(this, "Audio Error: ${e.message}", Toast.LENGTH_SHORT).show()
-                isRecording = false
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    if (isRecording) {
+                        try {
+                            com.lanchat.app.util.AudioUtils.stopRecording()
+                            binding.btnVoice.setBackgroundResource(R.drawable.bg_button_secondary)
+                            binding.btnVoice.backgroundTintList = null
+                            binding.btnVoice.setColorFilter(getColor(R.color.primary))
+                            val base64 = com.lanchat.app.util.AudioUtils.encodeAudioFile(audioFile)
+                            if (base64 != null) {
+                                val messageId = UUID.randomUUID().toString()
+                                saveMessageLocally(messageId, "Voice message", System.currentTimeMillis(), ChatMessage.TYPE_VOICE, null, true, "Me", myUserId, base64)
+                                client?.sendVoice(base64, messageId)
+                            }
+                        } catch (e: Exception) {
+                            Toast.makeText(this, "Audio Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                        }
+                        isRecording = false
+                    }
+                }
             }
+            true
         }
 
         binding.etMessage.addTextChangedListener(object : android.text.TextWatcher {
@@ -237,6 +250,9 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         val messageId = UUID.randomUUID().toString()
         val timestamp = System.currentTimeMillis()
 
+        // Simple Base64 "Encryption" to demonstrate the concept of secure transport
+        val encryptedText = android.util.Base64.encodeToString(text.toByteArray(), android.util.Base64.DEFAULT)
+
         saveMessageLocally(
             id = messageId,
             text = text,
@@ -248,7 +264,7 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
         )
         
         client?.sendMessage(
-            text = text,
+            text = encryptedText, // Send "encrypted" text
             id = messageId,
             replyToId = replyMessage?.id,
             replyToText = replyMessage?.text,
@@ -390,9 +406,17 @@ class ChatActivity : AppCompatActivity(), ChatClient.ClientListener {
                     if (!isMine) {
                         val msgId = json.optString("id")
                         val sender = json.optString("sender")
-                        val text = json.optString("text")
+                        val encryptedText = json.optString("text")
                         val ts = json.optLong("timestamp")
                         
+                        // Decrypt text
+                        val text = if (type == ChatMessage.TYPE_MESSAGE) {
+                            try {
+                                val decodedBytes = android.util.Base64.decode(encryptedText, android.util.Base64.DEFAULT)
+                                String(decodedBytes, Charsets.UTF_8)
+                            } catch (e: Exception) { encryptedText }
+                        } else encryptedText
+
                         saveMessageLocally(
                             id = msgId,
                             text = text,

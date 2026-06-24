@@ -51,18 +51,19 @@ object AudioUtils {
         }
     }
 
-    fun playAudio(base64: String, context: Context, messageId: String) {
+    fun playAudio(base64: String, context: Context, messageId: String, onComplete: () -> Unit = {}) {
         try {
+            // Stop current playback
+            mediaPlayer?.let {
+                if (it.isPlaying) it.stop()
+                it.release()
+            }
+            mediaPlayer = null
+
             val audioFile = File(context.cacheDir, "voice_$messageId.mp4")
             if (!audioFile.exists()) {
                 val bytes = Base64.decode(base64, Base64.DEFAULT)
                 FileOutputStream(audioFile).use { it.write(bytes) }
-            }
-
-            if (mediaPlayer?.isPlaying == true) {
-                mediaPlayer?.stop()
-                mediaPlayer?.release()
-                mediaPlayer = null
             }
 
             mediaPlayer = MediaPlayer().apply {
@@ -72,6 +73,7 @@ object AudioUtils {
                 setOnCompletionListener { 
                     it.release()
                     mediaPlayer = null
+                    onComplete()
                 }
             }
         } catch (e: Exception) {
